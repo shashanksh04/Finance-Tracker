@@ -18,6 +18,7 @@ class FinancialMemory(Base):
     embedding_vector = Column(Vector(1024), nullable=True)
     memory_type = Column(String, nullable=False)
     importance = Column(Float, default=0.5)
+    deleted_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

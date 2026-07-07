@@ -20,6 +20,7 @@ class Bill(Base):
     category_id = Column(String(36), ForeignKey("categories.id"), nullable=True)
     recurring_id = Column(String(36), ForeignKey("recurring_transactions.id"), nullable=True)
     notes = Column(Text, nullable=True)
+    deleted_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

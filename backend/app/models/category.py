@@ -16,7 +16,9 @@ class Category(Base):
     type = Column(String, nullable=False)
     parent_id = Column(String(36), ForeignKey("categories.id"), nullable=True)
     sort_order = Column(Integer, default=0)
+    deleted_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     user = relationship("User", back_populates="categories")
     parent = relationship("Category", back_populates="children", remote_side="Category.id")

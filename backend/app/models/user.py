@@ -16,6 +16,7 @@ class User(Base):
     is_verified = Column(Boolean, default=False)
     onboarding_completed = Column(Boolean, default=False, server_default=text("false"))
     settings = Column(JSON, nullable=True)
+    deleted_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

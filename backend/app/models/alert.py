@@ -18,7 +18,9 @@ class Alert(Base):
     related_amount = Column(Numeric, nullable=True)
     is_read = Column(Boolean, default=False)
     is_dismissed = Column(Boolean, default=False)
+    deleted_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     user = relationship("User", back_populates="alerts")
     category = relationship("Category", back_populates="alerts")
@@ -32,6 +34,8 @@ class AlertPreference(Base):
     alert_type = Column(String, nullable=False)
     enabled = Column(Boolean, default=True)
     threshold = Column(Numeric, nullable=True)
+    deleted_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     user = relationship("User", back_populates="alert_preferences")

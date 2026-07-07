@@ -24,6 +24,7 @@ class Transaction(Base):
     tags = Column(JSON, nullable=True)
     is_split = Column(Boolean, default=False)
     parent_split_id = Column(String(36), ForeignKey("transactions.id"), nullable=True)
+    deleted_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

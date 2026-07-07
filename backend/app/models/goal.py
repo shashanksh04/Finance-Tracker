@@ -20,6 +20,7 @@ class Goal(Base):
     status = Column(String, default="active")
     monthly_contribution = Column(Numeric, nullable=True)
     notes = Column(Text, nullable=True)
+    deleted_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

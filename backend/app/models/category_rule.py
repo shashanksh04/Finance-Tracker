@@ -17,7 +17,9 @@ class CategoryRule(Base):
     max_amount = Column(Numeric, nullable=True)
     priority = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
+    deleted_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     user = relationship("User", back_populates="rules")
     category = relationship("Category", back_populates="rules")

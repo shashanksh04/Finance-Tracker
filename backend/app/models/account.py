@@ -17,6 +17,7 @@ class Account(Base):
     icon = Column(String, nullable=True)
     color = Column(String, nullable=True)
     is_archived = Column(Boolean, default=False)
+    deleted_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
