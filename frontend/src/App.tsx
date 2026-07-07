@@ -44,6 +44,7 @@ export default function App() {
           <Route path="categories" element={<CategoriesPage />} />
           <Route path="budgets" element={<BudgetsPage />} />
           <Route path="goals" element={<GoalsPage />} />
+          <Route path="bills" element={<BillsPage />} />
           <Route path="recurring" element={<RecurringPage />} />
           <Route path="analysis" element={<AnalysisPage />} />
           <Route path="copilot" element={<CopilotPage />} />
