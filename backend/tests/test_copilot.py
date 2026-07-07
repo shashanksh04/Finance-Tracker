@@ -73,7 +73,7 @@ class TestToolSchemas:
     def test_get_tool_schemas_returns_list(self):
         schemas = get_tool_schemas()
         assert isinstance(schemas, list)
-        assert len(schemas) == 6
+        assert len(schemas) == 8
 
     def test_each_tool_has_name(self):
         schemas = get_tool_schemas()

@@ -19,6 +19,7 @@ class CopilotResponse(BaseModel):
     session_id: str = ""
     suggested_actions: Optional[List[dict]] = None
     insights: Optional[List[str]] = None
+    agent_trace: Optional[List[dict]] = None
 
 
 class StreamChunk(BaseModel):
