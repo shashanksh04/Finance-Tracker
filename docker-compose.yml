@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     platform: linux/arm64
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -35,6 +35,9 @@ services:
       OLLAMA_API_KEY: ${OLLAMA_API_KEY}
       UPLOAD_DIR: /var/www/finance-tracker/uploads
       LOG_LEVEL: INFO
+      EMBEDDING_MODEL: mxbai-embed-large
+      EMBEDDING_DIMENSION: 1024
+      CONVERSATION_TTL_HOURS: 24
     depends_on:
       - db
       - redis
