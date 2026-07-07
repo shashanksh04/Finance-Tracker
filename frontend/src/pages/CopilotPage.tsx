@@ -27,6 +27,7 @@ export function CopilotPage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<{ abort: () => void } | null>(null);
+  const accumulatedRef = useRef('');
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, streamingContent]);
 
@@ -37,6 +38,7 @@ export function CopilotPage() {
     setInput('');
     setLoading(true);
     setStreamingContent('');
+    accumulatedRef.current = '';
 
     const payload = {
       message: text,
@@ -51,23 +53,26 @@ export function CopilotPage() {
         } else if (event.type === 'status') {
           setStreamingContent(`_${event.content}_`);
         } else if (event.type === 'token') {
-          setStreamingContent((prev) => prev + event.content);
+          accumulatedRef.current += event.content;
+          setStreamingContent(accumulatedRef.current);
         } else if (event.type === 'error') {
           setMessages((prev) => [...prev, { role: 'assistant', content: event.content }]);
           setStreamingContent('');
           completed = true;
         } else if (event.type === 'done') {
           setMessages((prev) => {
-            const last = prev[prev.length - 1];
-            if (last && last.role === 'assistant') return prev;
-            return [...prev, { role: 'assistant', content: '' }];
+            if (prev[prev.length - 1]?.role === 'assistant') return prev;
+            return [...prev, { role: 'assistant', content: accumulatedRef.current }];
           });
+          setStreamingContent('');
+          setLoading(false);
+          completed = true;
         }
       },
       () => {
         setMessages((prev) => {
           if (prev[prev.length - 1]?.role === 'assistant') return prev;
-          return [...prev, { role: 'assistant', content: '' }];
+          return [...prev, { role: 'assistant', content: accumulatedRef.current }];
         });
         setStreamingContent('');
         setLoading(false);

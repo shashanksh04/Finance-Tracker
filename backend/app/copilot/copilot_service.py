@@ -5,13 +5,20 @@ from typing import AsyncGenerator, Optional
 
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func, and_
 from app.core.config import settings
 from app.core.redis import get_redis
 from app.schemas.copilot import CopilotRequest, CopilotResponse, DecisionSimulationRequest, DecisionSimulationResponse
-from app.copilot.intent_router import classify_intent, is_direct_answer_intent
+from app.copilot.intent_router import classify_intent
 from app.copilot.tools import get_tool_schemas, execute_tool
 from app.copilot.rag_engine import RAGEngine
 from app.models.memory import FinancialMemory
+from app.models.account import Account
+from app.models.transaction import Transaction
+from app.models.category import Category
+from app.models.budget import Budget
+from app.models.bill import Bill
+from app.models.goal import Goal
 
 
 CONVERSATION_TTL = getattr(settings, "CONVERSATION_TTL_HOURS", 24) * 3600
@@ -22,20 +29,134 @@ class CopilotService:
     def __init__(self, db: AsyncSession, user=None):
         self.db = db
         self.user = user
-        self.rag = RAGEngine(db)
+
+    async def _build_full_context(self, user_id: str) -> str:
+        parts = []
+
+        name = self.user.full_name if self.user and self.user.full_name else "there"
+        parts.append(f"User's name: {name}")
+
+        accts = await self.db.execute(
+            select(Account).where(Account.user_id == user_id, Account.is_archived == False)
+        )
+        accounts = accts.scalars().all()
+        if accounts:
+            parts.append("Accounts:")
+            for a in accounts:
+                bal = float(a.balance) if a.balance else 0
+                parts.append(f"  - {a.name} ({a.type}): balance {bal:.2f}")
+        else:
+            parts.append("No accounts set up yet.")
+
+        today = date.today()
+        month_start = today.replace(day=1)
+        month_end = (month_start + timedelta(days=32)).replace(day=1)
+        three_months_ago = (month_start - timedelta(days=90)).replace(day=1)
+        last_month_end = month_start
+        last_month_start = (last_month_end - timedelta(days=1)).replace(day=1)
+
+        income = await self.db.execute(
+            select(func.coalesce(func.sum(Transaction.amount), 0))
+            .where(Transaction.user_id == user_id, Transaction.date >= month_start, Transaction.date < month_end, Transaction.type == "income")
+        )
+        income_total = income.scalar()
+        expense = await self.db.execute(
+            select(func.coalesce(func.sum(Transaction.amount), 0))
+            .where(Transaction.user_id == user_id, Transaction.date >= month_start, Transaction.date < month_end, Transaction.type == "expense")
+        )
+        expense_total = expense.scalar()
+
+        lm_income = await self.db.execute(
+            select(func.coalesce(func.sum(Transaction.amount), 0))
+            .where(Transaction.user_id == user_id, Transaction.date >= last_month_start, Transaction.date < last_month_end, Transaction.type == "income")
+        )
+        lm_expense = await self.db.execute(
+            select(func.coalesce(func.sum(Transaction.amount), 0))
+            .where(Transaction.user_id == user_id, Transaction.date >= last_month_start, Transaction.date < last_month_end, Transaction.type == "expense")
+        )
+        parts.append(f"Current month ({month_start} through {today}): income {income_total:.2f}, expenses {expense_total:.2f}")
+        parts.append(f"Last month ({last_month_start} to {last_month_end}): income {lm_income.scalar():.2f}, expenses {lm_expense.scalar():.2f}")
+
+        for label, p_start, p_end in [
+            ("Current month", month_start, month_end),
+            ("Last month", last_month_start, last_month_end),
+        ]:
+            cat_rows = await self.db.execute(
+                select(
+                    Transaction.category_id,
+                    func.coalesce(func.sum(Transaction.amount), 0).label("total"),
+                )
+                .where(
+                    Transaction.user_id == user_id,
+                    Transaction.date >= p_start,
+                    Transaction.date < p_end,
+                    Transaction.type == "expense",
+                )
+                .group_by(Transaction.category_id)
+                .order_by(func.sum(Transaction.amount).desc())
+                .limit(8)
+            )
+            rows = cat_rows.all()
+            if rows:
+                cat_ids = [r.category_id for r in rows if r.category_id]
+                cat_map = {}
+                if cat_ids:
+                    cats = await self.db.execute(select(Category).where(Category.id.in_(cat_ids)))
+                    for c in cats.scalars().all():
+                        cat_map[c.id] = c
+                parts.append(f"Top spending categories ({label}):")
+                for r in rows:
+                    name = cat_map[r.category_id].name if r.category_id and r.category_id in cat_map else "Uncategorized"
+                    parts.append(f"  - {name}: {float(r.total):.2f}")
+            else:
+                parts.append(f"No expenses in {label}.")
+
+        budgets = await self.db.execute(
+            select(Budget).where(Budget.user_id == user_id, Budget.is_active == True)
+        )
+        budgets_list = budgets.scalars().all()
+        if budgets_list:
+            parts.append("Active budgets (monthly):")
+            for b in budgets_list:
+                cat_name = "Overall"
+                if b.category_id:
+                    cat = await self.db.get(Category, b.category_id)
+                    cat_name = cat.name if cat else "Unknown"
+                parts.append(f"  - {cat_name}: limit {float(b.amount):.2f}")
+        else:
+            parts.append("No active budgets.")
+
+        goals = await self.db.execute(
+            select(Goal).where(Goal.user_id == user_id)
+        )
+        goals_list = goals.scalars().all()
+        if goals_list:
+            parts.append("Goals:")
+            for g in goals_list:
+                parts.append(f"  - {g.name}: {float(g.current_amount):.2f} / {float(g.target_amount):.2f} ({g.status})")
+        else:
+            parts.append("No goals.")
+
+        bills = await self.db.execute(
+            select(Bill).where(Bill.user_id == user_id, Bill.is_paid == False)
+            .order_by(Bill.due_date).limit(10)
+        )
+        bills_list = bills.scalars().all()
+        if bills_list:
+            parts.append("Upcoming bills:")
+            for b in bills_list:
+                parts.append(f"  - {b.name}: {float(b.amount):.2f} due {b.due_date}")
+        else:
+            parts.append("No upcoming bills.")
+
+        return "\n".join(parts)
 
     async def chat(self, user_id: str, request: CopilotRequest) -> CopilotResponse:
         messages = await self._load_or_create_conversation(user_id, request.session_id)
         messages.append({"role": "user", "content": request.message})
 
-        intent = classify_intent(request.message)
-
-        if is_direct_answer_intent(intent):
-            reply = await self._direct_answer(user_id, intent, request.message)
-        else:
-            context = await self.rag.retrieve(request.message, user_id)
-            rag_context = self.rag.format_context(context)
-            reply = await self._llm_chat(messages, rag_context, intent == "multi_step", user_id)
+        context = await self._build_full_context(user_id)
+        reply = await self._llm_chat(messages, context, True, user_id)
 
         messages.append({"role": "assistant", "content": reply})
         await self._save_conversation(user_id, request.session_id, messages)
@@ -56,108 +177,26 @@ class CopilotService:
         messages.append({"role": "user", "content": request.message})
 
         yield self._sse_event("session_id", session_id)
-        yield self._sse_event("status", "Analyzing your request...")
+        yield self._sse_event("status", "Analyzing your finances...")
+        yield self._sse_event("status", "Gathering your financial data...")
 
-        intent = classify_intent(request.message)
-        yield self._sse_event("intent", intent)
-
-        if is_direct_answer_intent(intent):
-            yield self._sse_event("status", f"Looking up your financial data...")
-            reply = await self._direct_answer(user_id, intent, request.message)
-            yield self._sse_event("token", reply)
-        else:
-            context = await self.rag.retrieve(request.message, user_id)
-            rag_context = self.rag.format_context(context)
-            reply = ""
-            async for event in self._llm_chat_stream(messages, rag_context, intent == "multi_step", user_id):
-                yield event
-                if event.startswith("data: "):
-                    try:
-                        parsed = json.loads(event[6:])
-                        if parsed.get("type") == "token":
-                            reply += parsed.get("content", "")
-                    except json.JSONDecodeError:
-                        pass
+        context = await self._build_full_context(user_id)
+        reply = ""
+        async for event in self._llm_chat_stream(messages, context, True, user_id):
+            yield event
+            if event.startswith("data: "):
+                try:
+                    parsed = json.loads(event[6:])
+                    if parsed.get("type") == "token":
+                        reply += parsed.get("content", "")
+                except json.JSONDecodeError:
+                    pass
 
         messages.append({"role": "assistant", "content": reply})
         await self._save_conversation(user_id, session_id, messages)
         await self._store_as_memory(user_id, request.message, reply)
 
         yield self._sse_event("done", session_id)
-
-    async def _direct_answer(self, user_id: str, intent: str, message: str) -> str:
-        from app.copilot.tools.finance_tools import (
-            get_spending_by_category,
-            get_budget_health,
-            get_recent_transactions,
-            get_upcoming_bills,
-            get_goal_progress,
-        )
-
-        tool_map = {
-            "spending_query": get_spending_by_category,
-            "budget_query": get_budget_health,
-            "goal_query": get_goal_progress,
-            "bill_query": get_upcoming_bills,
-        }
-        fn = tool_map.get(intent)
-        if not fn:
-            return "I understand your question but need more details to give a precise answer."
-
-        try:
-            result = await fn(db=self.db, user_id=user_id, user=self.user)
-            return self._format_direct_answer(intent, result)
-        except Exception as e:
-            return f"I ran into an issue fetching your data: {str(e)}"
-
-    def _format_direct_answer(self, intent: str, data: dict) -> str:
-        if intent == "spending_query":
-            items = data.get("items", [])
-            total = data.get("formatted_total", "$0.00")
-            if not items:
-                return f"No spending found for this period. Your total tracked spending is {total}."
-            lines = [f"Your total spending this period is {total}."]
-            for item in items[:5]:
-                lines.append(f"- {item['category']}: {item['formatted']} ({item['count']} transactions)")
-            return "\n".join(lines)
-
-        if intent == "budget_query":
-            budgets = data.get("budgets", [])
-            if not budgets:
-                return "You have no active budgets. Consider creating one to track your spending."
-            lines = ["Here's your budget health this month:"]
-            for b in budgets:
-                emoji = "🔴" if b["status"] == "over" else "🟡" if b["status"] == "warning" else "🟢"
-                lines.append(
-                    f"{emoji} {b['category']}: {b['formatted_spent']} / {b['formatted_budgeted']} "
-                    f"({b['percentage']}%) — {b['formatted_remaining']} remaining"
-                )
-            return "\n".join(lines)
-
-        if intent == "goal_query":
-            goals = data.get("goals", [])
-            if not goals:
-                return "You have no active financial goals. Setting goals can help you save more effectively."
-            lines = ["Here's your goal progress:"]
-            for g in goals:
-                lines.append(
-                    f"- {g['name']}: {g['formatted_current']} / {g['formatted_target']} "
-                    f"({g['progress_percentage']}%) — {g['formatted_remaining']} to go"
-                )
-            return "\n".join(lines)
-
-        if intent == "bill_query":
-            bills = data.get("bills", [])
-            if not bills:
-                return "No upcoming bills due in this period. You're all clear!"
-            lines = [f"You have {data['count']} bill(s) due totaling {data['formatted_total']}:"]
-            for b in bills:
-                lines.append(
-                    f"- {b['name']}: {b['formatted']} due {b['due_date']} ({b['days_until']} days away)"
-                )
-            return "\n".join(lines)
-
-        return json.dumps(data, default=str)
 
     async def _llm_chat(
         self,
@@ -213,7 +252,7 @@ class CopilotService:
             "model": settings.OLLAMA_MODEL,
             "messages": ollama_messages,
             "stream": True,
-            "options": {"num_predict": 1024},
+            "options": {"num_predict": 2048},
         }
         if enable_tools:
             payload["tools"] = get_tool_schemas()
@@ -298,17 +337,22 @@ class CopilotService:
         return await self._llm_chat(follow_up_messages, rag_context, False, user_id)
 
     def _build_ollama_messages(self, messages: list, rag_context: str) -> list:
+        user_name = self.user.full_name if self.user and self.user.full_name else "there"
         system = {
             "role": "system",
             "content": (
-                "You are a helpful financial copilot assistant. You help users understand their "
-                "spending, budgets, goals, bills, and overall financial health. "
-                "Be concise, accurate, and friendly. Use the provided context and tools to answer "
-                "questions. If you use tools, interpret the results naturally for the user."
+                f"You are a helpful financial copilot assistant. The user's name is {user_name}.\n\n"
+                "The data below is only a summary overview. You have tools available.\n"
+                "CRITICAL: You MUST use a tool to answer ANY question about spending, income, transactions,"
+                " budgets, or other financial data. Do NOT try to answer from the summary context alone.\n"
+                "For example, if asked 'how much did I spend on food last month', call"
+                " get_spending_by_category(category_name='Food & Dining', period='last_month').\n"
+                "If asked 'show my recent transactions', call get_recent_transactions().\n"
+                "If asked about budget health, call get_budget_health().\n"
+                "Always prefer using a tool over guessing from context.\n\n"
+                f"Summary overview:\n{rag_context}"
             ),
         }
-        if rag_context:
-            system["content"] += f"\n\n{rag_context}"
 
         history = []
         for m in messages[-MAX_HISTORY:]:
@@ -322,14 +366,12 @@ class CopilotService:
     async def simulate_decision(
         self, user_id: str, request: DecisionSimulationRequest
     ) -> DecisionSimulationResponse:
-        context = await self.rag.retrieve(f"spending in {request.category or 'all'}", user_id)
-        rag_context = self.rag.format_context(context)
-
+        context = await self._build_full_context(user_id)
         prompt = (
             f"You are a financial advisor. The user is considering spending "
             f"{request.amount:.2f} on '{request.scenario}' "
             f"in the '{request.category or 'general'}' category ({request.timeframe}).\n\n"
-            f"Current financial context:\n{rag_context}\n\n"
+            f"Current financial context:\n{context}\n\n"
             f"Provide:\n1. Impact analysis on their finances\n"
             f"2. 3-5 specific recommendations\n"
             f"3. Risk level (low/medium/high)\n"

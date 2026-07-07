@@ -184,11 +184,11 @@ export const analysisApi = {
 export const copilotApi = {
   chat: (data: any) => api.post('/copilot/chat', data),
   chatStream: (data: any, onEvent: (event: { type: string; content: any }) => void, onDone: () => void, onError: (err: Error) => void) => {
-    const token = localStorage.getItem('token');
+    const tokens = getStoredTokens();
     const controller = new AbortController();
     fetch('/api/copilot/chat/stream', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      headers: { 'Content-Type': 'application/json', ...(tokens?.access_token ? { Authorization: `Bearer ${tokens.access_token}` } : {}) },
       body: JSON.stringify(data),
       signal: controller.signal,
     }).then(async (response) => {
@@ -210,7 +210,6 @@ export const copilotApi = {
             try {
               const parsed = JSON.parse(line.slice(6));
               onEvent(parsed);
-              if (parsed.type === 'done') onDone();
             } catch { /* skip malformed */ }
           }
         }

@@ -18,7 +18,10 @@ class RAGEngine:
         top_k: int = 5,
         min_score: float = 0.3,
     ) -> List[dict]:
-        query_vec = await EmbeddingService.embed(query)
+        try:
+            query_vec = await EmbeddingService.embed(query)
+        except Exception:
+            query_vec = []
         if not query_vec:
             return []
 

@@ -22,6 +22,15 @@ INTENT_PATTERNS = {
         r"\bcompare", r"\bvs\b", r"\bversus", r"\bdifference",
         r"\bchange.*(from|since|vs)", r"\bthan last",
     ],
+    "account_query": [
+        r"\baccount", r"\bbalance", r"\bhow much.*(in|have)", r"\bnet worth",
+        r"\bwhat.*account", r"\blist.*account",
+    ],
+    "income_query": [
+        r"\bincome", r"\bsalary", r"\bearn", r"\brental",
+        r"\bfreelance", r"\bhow much.*(make|earn|get paid)",
+        r"\bwhat.*(income|salary|earn)",
+    ],
 }
 
 
@@ -47,4 +56,4 @@ def classify_intent(message: str) -> str:
 
 
 def is_direct_answer_intent(intent: str) -> bool:
-    return intent in ("spending_query", "budget_query", "goal_query", "bill_query")
+    return intent in ("spending_query", "budget_query", "goal_query", "bill_query", "account_query", "income_query")

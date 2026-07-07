@@ -8,6 +8,7 @@ from app.models.category import Category
 from app.models.budget import Budget
 from app.models.bill import Bill
 from app.models.goal import Goal
+from app.models.account import Account
 from app.services.analysis_service import AnalysisService
 
 
@@ -53,7 +54,7 @@ async def get_spending_by_category(
         cat_result = await db.execute(
             select(Category).where(
                 Category.user_id == user_id,
-                func.lower(Category.name) == category_name.lower(),
+                func.lower(Category.name).contains(category_name.lower()),
             )
         )
         cat = cat_result.scalar_one_or_none()
@@ -168,7 +169,7 @@ async def get_recent_transactions(
         cat_result = await db.execute(
             select(Category).where(
                 Category.user_id == user_id,
-                func.lower(Category.name) == category.lower(),
+                func.lower(Category.name).contains(category.lower()),
             )
         )
         cat = cat_result.scalar_one_or_none()
@@ -311,3 +312,122 @@ async def get_goal_progress(
         })
 
     return {"goals": items, "count": len(items)}
+
+
+async def get_accounts(
+    db: AsyncSession,
+    user_id: str,
+    user,
+) -> dict:
+    result = await db.execute(
+        select(Account).where(
+            Account.user_id == user_id,
+            Account.is_archived == False,
+        ).order_by(Account.name)
+    )
+    accounts = result.scalars().all()
+    sym = _currency_symbol(user)
+
+    items = []
+    for a in accounts:
+        items.append({
+            "id": a.id,
+            "name": a.name,
+            "type": a.type,
+            "balance": float(a.balance) if a.balance else 0,
+            "formatted_balance": f"{sym}{float(a.balance):.2f}" if a.balance else f"{sym}0.00",
+            "currency": a.currency or "INR",
+        })
+
+    return {"accounts": items, "count": len(items)}
+
+
+async def get_income_summary(
+    db: AsyncSession,
+    user_id: str,
+    user,
+    period: str = "this_month",
+    account_name: Optional[str] = None,
+) -> dict:
+    today = date.today()
+    if period == "this_month":
+        start = today.replace(day=1)
+        end = (start + timedelta(days=32)).replace(day=1)
+    elif period == "last_month":
+        end = today.replace(day=1)
+        start = (end - timedelta(days=1)).replace(day=1)
+    elif period == "this_year":
+        start = today.replace(month=1, day=1)
+        end = today.replace(year=today.year + 1, month=1, day=1)
+    elif period == "last_3_months":
+        end = today.replace(day=1)
+        start = (end - timedelta(days=90)).replace(day=1)
+    elif period == "all":
+        start = date(2000, 1, 1)
+        end = today + timedelta(days=1)
+    else:
+        start = today.replace(day=1)
+        end = (start + timedelta(days=32)).replace(day=1)
+
+    where = [
+        Transaction.user_id == user_id,
+        Transaction.date >= start,
+        Transaction.date < end,
+        Transaction.type == "income",
+    ]
+
+    if account_name:
+        acct_result = await db.execute(
+            select(Account).where(
+                Account.user_id == user_id,
+                func.lower(Account.name).contains(account_name.lower()),
+            )
+        )
+        acct = acct_result.scalar_one_or_none()
+        if acct:
+            where.append(Transaction.account_id == acct.id)
+        else:
+            return {"error": f"Account '{account_name}' not found", "items": []}
+
+    query = select(
+        func.coalesce(func.sum(Transaction.amount), 0).label("total"),
+        func.count(Transaction.id).label("count"),
+    ).where(and_(*where))
+    result = await db.execute(query)
+    row = result.one()
+
+    cat_query = select(
+        Transaction.category_id,
+        func.coalesce(func.sum(Transaction.amount), 0).label("total"),
+        func.count(Transaction.id).label("count"),
+    ).where(and_(*where)).group_by(Transaction.category_id)
+    cat_result = await db.execute(cat_query)
+    cat_rows = cat_result.all()
+
+    cat_ids = [r.category_id for r in cat_rows if r.category_id]
+    cat_map = {}
+    if cat_ids:
+        cats = await db.execute(select(Category).where(Category.id.in_(cat_ids)))
+        for c in cats.scalars().all():
+            cat_map[c.id] = c
+
+    sym = _currency_symbol(user)
+    sources = []
+    for r in cat_rows:
+        name = "Uncategorized"
+        if r.category_id and r.category_id in cat_map:
+            name = cat_map[r.category_id].name
+        sources.append({
+            "source": name,
+            "amount": float(r.total),
+            "formatted": f"{sym}{float(r.total):.2f}",
+            "count": r.count,
+        })
+
+    return {
+        "period": period,
+        "total_income": float(row.total),
+        "formatted_total": f"{sym}{float(row.total):.2f}",
+        "transaction_count": row.count,
+        "sources": sources,
+    }

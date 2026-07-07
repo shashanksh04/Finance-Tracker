@@ -6,6 +6,8 @@ from app.copilot.tools.finance_tools import (
     get_upcoming_bills,
     compare_periods,
     get_goal_progress,
+    get_accounts,
+    get_income_summary,
 )
 
 FINANCE_TOOLS: dict[str, dict[str, Any]] = {
@@ -141,6 +143,44 @@ FINANCE_TOOLS: dict[str, dict[str, Any]] = {
                             "type": "string",
                             "enum": ["active", "completed", "all"],
                             "description": "Filter goals by status",
+                        },
+                    },
+                },
+            },
+        },
+    },
+    "get_accounts": {
+        "function": get_accounts,
+        "schema": {
+            "type": "function",
+            "function": {
+                "name": "get_accounts",
+                "description": "List all non-archived accounts with their types, balances, and currencies. Returns account names, types (checking, savings, credit, cash, investment), and current balances.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {},
+                },
+            },
+        },
+    },
+    "get_income_summary": {
+        "function": get_income_summary,
+        "schema": {
+            "type": "function",
+            "function": {
+                "name": "get_income_summary",
+                "description": "Get total income for a time period, optionally filtered by account. Returns total income, transaction count, and breakdown by income source/category.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "period": {
+                            "type": "string",
+                            "enum": ["this_month", "last_month", "this_year", "last_3_months", "all"],
+                            "description": "Time period to analyze",
+                        },
+                        "account_name": {
+                            "type": "string",
+                            "description": "Optional account name to filter by (e.g. 'HDFC Checking', 'ICICI Savings')",
                         },
                     },
                 },
