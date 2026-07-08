@@ -1,0 +1,68 @@
+{
+  "expo": {
+    "name": "Finance Tracker",
+    "slug": "finance-tracker-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "scheme": "financetracker",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.financetracker.mobile",
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Use Face ID to protect your financial data",
+        "NSCameraUsageDescription": "Use camera to scan receipts and bills",
+        "NSPhotoLibraryUsageDescription": "Access photos for receipt scanning",
+        "NSLocationWhenInUseUsageDescription": "Tag transactions with your location",
+        "NSContactsUsageDescription": "Split expenses with your contacts",
+        "NSCalendarsUsageDescription": "Sync bills and due dates to your calendar"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/adaptive-icon.png"
+      },
+      "package": "com.financetracker.mobile",
+      "permissions": [
+        "USE_BIOMETRIC",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "ACCESS_FINE_LOCATION",
+        "READ_CONTACTS",
+        "READ_CALENDAR",
+        "WRITE_CALENDAR",
+        "RECEIVE_SMS",
+        "NFC"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-local-authentication",
+      "expo-notifications",
+      "expo-background-fetch",
+      "expo-camera",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow Finance Tracker to tag transactions with your location."
+        }
+      ],
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "Allow Finance Tracker to access contacts for expense splitting."
+        }
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Allow Finance Tracker to sync bills to your calendar."
+        }
+      ]
+    ]
+  }
+}
