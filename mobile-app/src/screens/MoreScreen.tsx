@@ -2,12 +2,18 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { useAuthStore } from '../stores/authStore';
 import { useSyncStore } from '../stores/syncStore';
-import { formatRelativeTime } from '../utils/format';
+import { formatRelativeTime, formatCurrency } from '../utils/format';
+import { shareText, formatSummaryShare } from '../services/share';
+import { useOfflineItem } from '../hooks/useOfflineData';
+import { calculatePersonality } from '../data/personalities';
+import PersonalityCard from '../components/PersonalityCard';
+import { colors, spacing, radius, fontSize, fontWeight, shadow } from '../theme/tokens';
 
 const menuSections = [
   {
     title: 'Financial',
     items: [
+      { name: 'New Transaction', icon: '➕', screen: 'AddTransaction' },
       { name: 'Categories', icon: '🏷️', screen: 'Categories' },
       { name: 'Budgets', icon: '📊', screen: 'Budgets' },
       { name: 'Goals', icon: '🎯', screen: 'Goals' },
@@ -25,6 +31,22 @@ const menuSections = [
     ],
   },
   {
+    title: 'Engagement',
+    items: [
+      { name: 'Streaks', icon: '🔥', screen: 'Streaks' },
+      { name: 'Badges', icon: '🏅', screen: 'Badges' },
+      { name: 'Your Month', icon: '📖', screen: 'SpendingStory' },
+    ],
+  },
+  {
+    title: 'Platform',
+    items: [
+      { name: 'Import from SMS', icon: '💬', screen: 'SmsImport' },
+      { name: 'Share Summary', icon: '📤', action: 'share' },
+      { name: 'Sync Calendar', icon: '📅', screen: 'CalendarSync' },
+    ],
+  },
+  {
     title: 'App',
     items: [
       { name: 'Settings', icon: '⚙️', screen: 'Settings' },
@@ -35,6 +57,16 @@ const menuSections = [
 export default function MoreScreen({ navigation }: any) {
   const { user, logout } = useAuthStore();
   const { status, lastSyncedAt, performSync } = useSyncStore();
+  const { data: summary } = useOfflineItem('dashboard_summary', 'current');
+  const personality = calculatePersonality({
+    income: summary?.total_income || 0,
+    expenses: summary?.total_expenses || 0,
+    transactions: summary?.total_transactions || 0,
+    streak: summary?.streak_days || 0,
+    goals: summary?.savings_goals_count || 0,
+    budgets: summary?.budgets_count || 0,
+    ...(summary?.stats || {}),
+  });
 
   return (
     <ScrollView style={styles.container}>
@@ -42,18 +74,20 @@ export default function MoreScreen({ navigation }: any) {
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>{user?.full_name?.charAt(0)?.toUpperCase() || 'U'}</Text>
         </View>
-        <View style={{ flex: 1 }}>
+        <View style={styles.profileInfo}>
           <Text style={styles.profileName}>{user?.full_name || 'User'}</Text>
           <Text style={styles.profileEmail}>{user?.email || ''}</Text>
         </View>
       </View>
 
+      {summary && <View style={styles.personalityWrapper}><PersonalityCard personality={personality} /></View>}
+
       <View style={styles.syncStatus}>
-        <View style={[styles.syncDot, { backgroundColor: status === 'syncing' ? '#f59e0b' : status === 'error' ? '#dc2626' : '#10b981' }]} />
+        <View style={[styles.syncDot, { backgroundColor: status === 'syncing' ? colors.warning : status === 'error' ? colors.danger : colors.success }]} />
         <Text style={styles.syncText}>
           {status === 'syncing' ? 'Syncing...' : lastSyncedAt ? `Last synced: ${formatRelativeTime(lastSyncedAt)}` : 'Not synced yet'}
         </Text>
-        <TouchableOpacity onPress={performSync} style={styles.syncBtn}>
+        <TouchableOpacity onPress={performSync} style={styles.syncBtn} accessibilityLabel="Sync now" accessibilityRole="button">
           <Text style={styles.syncBtnText}>Sync Now</Text>
         </TouchableOpacity>
       </View>
@@ -62,7 +96,19 @@ export default function MoreScreen({ navigation }: any) {
         <View key={si} style={styles.menuSection}>
           <Text style={styles.sectionTitle}>{section.title}</Text>
           {section.items.map((item) => (
-            <TouchableOpacity key={item.name} style={styles.menuItem} onPress={() => navigation.navigate(item.screen)}>
+              <TouchableOpacity
+              key={item.name}
+              style={styles.menuItem}
+              accessibilityLabel={item.name}
+              accessibilityRole="button"
+              onPress={() => {
+                if ((item as any).action === 'share') {
+                  shareText(formatSummaryShare(0, 0, 0));
+                } else {
+                  navigation.navigate((item as any).screen);
+                }
+              }}
+            >
               <Text style={styles.menuIcon}>{item.icon}</Text>
               <Text style={styles.menuName}>{item.name}</Text>
               <Text style={styles.menuArrow}>›</Text>
@@ -80,23 +126,25 @@ export default function MoreScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
-  profileCard: { flexDirection: 'row', alignItems: 'center', gap: 16, backgroundColor: '#fff', padding: 20, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
-  avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#0284c7', justifyContent: 'center', alignItems: 'center' },
-  avatarText: { fontSize: 20, fontWeight: '700', color: '#fff' },
-  profileName: { fontSize: 18, fontWeight: '600', color: '#0f172a' },
-  profileEmail: { fontSize: 13, color: '#64748b', marginTop: 2 },
-  syncStatus: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', padding: 12, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
-  syncDot: { width: 6, height: 6, borderRadius: 3, marginRight: 8 },
-  syncText: { flex: 1, fontSize: 12, color: '#64748b' },
-  syncBtn: { paddingHorizontal: 12, paddingVertical: 4, backgroundColor: '#e0f2fe', borderRadius: 12 },
-  syncBtnText: { fontSize: 12, color: '#0284c7', fontWeight: '600' },
-  menuSection: { backgroundColor: '#fff', marginTop: 12, marginHorizontal: 16, borderRadius: 12, overflow: 'hidden' },
-  sectionTitle: { fontSize: 13, fontWeight: '600', color: '#64748b', textTransform: 'uppercase', padding: 16, paddingBottom: 8 },
-  menuItem: { flexDirection: 'row', alignItems: 'center', padding: 16, borderTopWidth: 1, borderTopColor: '#f1f5f9' },
-  menuIcon: { fontSize: 18, marginRight: 12 },
-  menuName: { flex: 1, fontSize: 15, color: '#0f172a' },
-  menuArrow: { fontSize: 20, color: '#94a3b8' },
-  logoutBtn: { margin: 16, marginTop: 24, padding: 16, borderRadius: 12, backgroundColor: '#fff', alignItems: 'center', borderWidth: 1, borderColor: '#fecaca' },
-  logoutText: { fontSize: 16, fontWeight: '600', color: '#dc2626' },
+  personalityWrapper: { padding: spacing.md, paddingBottom: 0 },
+  container: { flex: 1, backgroundColor: colors.background },
+  profileCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg, backgroundColor: colors.card, padding: spacing.xl, borderBottomWidth: 1, borderBottomColor: colors.border },
+  avatar: { width: 52, height: 52, borderRadius: 26, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center' },
+  avatarText: { fontSize: fontSize.xxl, fontWeight: fontWeight.bold, color: colors.textInverse },
+  profileInfo: { flex: 1 },
+  profileName: { fontSize: fontSize.lg, fontWeight: fontWeight.semibold, color: colors.text },
+  profileEmail: { fontSize: fontSize.sm, color: colors.textSecondary, marginTop: 2 },
+  syncStatus: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, padding: spacing.md, paddingHorizontal: spacing.xl, borderBottomWidth: 1, borderBottomColor: colors.border },
+  syncDot: { width: 8, height: 8, borderRadius: 4, marginRight: spacing.sm },
+  syncText: { flex: 1, fontSize: fontSize.xs, color: colors.textSecondary },
+  syncBtn: { paddingHorizontal: spacing.md, paddingVertical: spacing.xs, backgroundColor: colors.primaryLight, borderRadius: radius.full },
+  syncBtnText: { fontSize: fontSize.xs, color: colors.primary, fontWeight: fontWeight.semibold },
+  menuSection: { backgroundColor: colors.card, marginTop: spacing.md, marginHorizontal: spacing.md, borderRadius: radius.md, overflow: 'hidden', ...shadow.sm },
+  sectionTitle: { fontSize: fontSize.xs, fontWeight: fontWeight.semibold, color: colors.textTertiary, textTransform: 'uppercase', padding: spacing.lg, paddingBottom: spacing.sm, letterSpacing: 0.5 },
+  menuItem: { flexDirection: 'row', alignItems: 'center', padding: spacing.lg, borderTopWidth: 1, borderTopColor: colors.border },
+  menuIcon: { fontSize: 20, marginRight: spacing.md },
+  menuName: { flex: 1, fontSize: fontSize.base, color: colors.text },
+  menuArrow: { fontSize: 22, color: colors.textTertiary },
+  logoutBtn: { margin: spacing.md, marginTop: spacing.xxl, padding: spacing.lg, borderRadius: radius.md, backgroundColor: colors.card, alignItems: 'center', borderWidth: 1, borderColor: colors.dangerLight },
+  logoutText: { fontSize: fontSize.base, fontWeight: fontWeight.semibold, color: colors.danger },
 });

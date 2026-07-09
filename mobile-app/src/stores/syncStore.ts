@@ -1,10 +1,7 @@
 import { create } from 'zustand';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { syncApi } from '../services/api';
+import { fullSync, getLastPulledAt } from '../database/sync';
+import { getDatabase } from '../database';
 import type { SyncStatus } from '../types';
-
-const LAST_SYNC_KEY = 'last_synced_at';
-const PENDING_CHANGES_KEY = 'pending_changes';
 
 interface SyncState {
   status: SyncStatus;
@@ -13,9 +10,6 @@ interface SyncState {
   error: string | null;
 
   performSync: () => Promise<void>;
-  markSynced: (timestamp: string) => Promise<void>;
-  addPendingChange: () => Promise<void>;
-  clearPendingChanges: () => Promise<void>;
   loadSyncState: () => Promise<void>;
 }
 
@@ -28,26 +22,15 @@ export const useSyncStore = create<SyncState>((set, get) => ({
   performSync: async () => {
     set({ status: 'syncing', error: null });
     try {
-      const lastPulledAt = get().lastSyncedAt || '1970-01-01T00:00:00Z';
-      const pullRes = await syncApi.pull({ last_pulled_at: lastPulledAt });
+      await getDatabase();
+      const result = await fullSync();
 
-      const pendingRaw = await AsyncStorage.getItem(PENDING_CHANGES_KEY);
-      if (pendingRaw) {
-        const pending = JSON.parse(pendingRaw);
-        if (pending.length > 0) {
-          await syncApi.push({ changes: pending, last_pulled_at: lastPulledAt });
-        }
-      }
-
-      const now = new Date().toISOString();
-      await AsyncStorage.setItem(LAST_SYNC_KEY, now);
-      await AsyncStorage.setItem(PENDING_CHANGES_KEY, JSON.stringify([]));
-
+      const lastPulledAt = await getLastPulledAt();
       set({
-        status: 'success',
-        lastSyncedAt: now,
+        status: result.conflicts > 0 ? 'error' : 'success',
+        lastSyncedAt: lastPulledAt,
         pendingChanges: 0,
-        error: null,
+        error: result.conflicts > 0 ? `${result.conflicts} conflicts resolved` : null,
       });
     } catch (err: any) {
       set({
@@ -57,25 +40,12 @@ export const useSyncStore = create<SyncState>((set, get) => ({
     }
   },
 
-  markSynced: async (timestamp) => {
-    await AsyncStorage.setItem(LAST_SYNC_KEY, timestamp);
-    set({ lastSyncedAt: timestamp, pendingChanges: 0 });
-  },
-
-  addPendingChange: async () => {
-    const count = get().pendingChanges + 1;
-    set({ pendingChanges: count });
-  },
-
-  clearPendingChanges: async () => {
-    await AsyncStorage.setItem(PENDING_CHANGES_KEY, JSON.stringify([]));
-    set({ pendingChanges: 0 });
-  },
-
   loadSyncState: async () => {
-    const lastSyncedAt = await AsyncStorage.getItem(LAST_SYNC_KEY);
-    const pendingRaw = await AsyncStorage.getItem(PENDING_CHANGES_KEY);
-    const pendingChanges = pendingRaw ? JSON.parse(pendingRaw).length : 0;
-    set({ lastSyncedAt, pendingChanges });
+    const lastSyncedAt = await getLastPulledAt();
+    const isEpoch = lastSyncedAt === '1970-01-01T00:00:00Z';
+    set({
+      lastSyncedAt: isEpoch ? null : lastSyncedAt,
+      pendingChanges: 0,
+    });
   },
 }));

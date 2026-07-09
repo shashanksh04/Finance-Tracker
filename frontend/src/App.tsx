@@ -17,6 +17,7 @@ import { AnalysisPage } from './pages/AnalysisPage';
 import { CopilotPage } from './pages/CopilotPage';
 import { AlertsPage } from './pages/AlertsPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { AdminPage } from './pages/AdminPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuthStore();
@@ -50,6 +51,7 @@ export default function App() {
           <Route path="copilot" element={<CopilotPage />} />
           <Route path="alerts" element={<AlertsPage />} />
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="admin" element={<AdminPage />} />
         </Route>
       </Routes>
     </ErrorBoundary>

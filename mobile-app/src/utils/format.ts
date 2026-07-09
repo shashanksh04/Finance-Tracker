@@ -49,6 +49,17 @@ export function daysUntil(date: string | Date): number {
   return Math.ceil(diffMs / 86400000);
 }
 
+export function isIncome(t: { type?: string; amount: number }): boolean {
+  if (t.type === 'income') return true;
+  if (t.type === 'expense') return false;
+  return t.amount >= 0;
+}
+
+export function formatTransactionAmount(t: { type?: string; amount: number }): string {
+  const sign = isIncome(t) ? '+' : '-';
+  return `${sign}${formatCurrency(Math.abs(t.amount))}`;
+}
+
 export function isOverdue(date: string | Date): boolean {
   const d = typeof date === 'string' ? new Date(date) : date;
   return d.getTime() < Date.now();

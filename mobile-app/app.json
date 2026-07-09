@@ -4,7 +4,6 @@
     "slug": "finance-tracker-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "scheme": "financetracker",
     "ios": {
@@ -17,13 +16,10 @@
         "NSLocationWhenInUseUsageDescription": "Tag transactions with your location",
         "NSContactsUsageDescription": "Split expenses with your contacts",
         "NSCalendarsUsageDescription": "Sync bills and due dates to your calendar"
-      }
+      },
+      "UIBackgroundModes": ["fetch", "remote-notification"]
     },
     "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/adaptive-icon.png"
-      },
       "package": "com.financetracker.mobile",
       "permissions": [
         "USE_BIOMETRIC",
@@ -34,12 +30,13 @@
         "READ_CALENDAR",
         "WRITE_CALENDAR",
         "RECEIVE_SMS",
-        "NFC"
+        "NFC",
+        "RECEIVE_BOOT_COMPLETED",
+        "WAKE_LOCK",
+        "POST_NOTIFICATIONS"
       ]
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
+    "web": {},
     "plugins": [
       "expo-local-authentication",
       "expo-notifications",

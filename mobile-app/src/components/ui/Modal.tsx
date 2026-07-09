@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal as RNModal, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { colors, spacing, radius, fontSize, fontWeight } from '../../theme/tokens';
 
 interface ModalProps {
   visible: boolean;
@@ -12,13 +13,13 @@ export default function Modal({ visible, onClose, title, children }: ModalProps)
   return (
     <RNModal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.overlay}>
-        <TouchableOpacity style={styles.backdrop} onPress={onClose} />
+        <TouchableOpacity style={styles.backdrop} onPress={onClose} accessibilityLabel="Close" accessibilityRole="button" />
         <View style={styles.sheet}>
           <View style={styles.handle} />
           {title && (
             <View style={styles.header}>
               <Text style={styles.title}>{title}</Text>
-              <TouchableOpacity onPress={onClose}>
+              <TouchableOpacity onPress={onClose} accessibilityLabel="Close" accessibilityRole="button">
                 <Text style={styles.closeBtn}>✕</Text>
               </TouchableOpacity>
             </View>
@@ -34,10 +35,10 @@ export default function Modal({ visible, onClose, title, children }: ModalProps)
 
 const styles = StyleSheet.create({
   overlay: { flex: 1, justifyContent: 'flex-end' },
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
-  sheet: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '85%', paddingBottom: 32 },
-  handle: { width: 36, height: 4, backgroundColor: '#e2e8f0', borderRadius: 2, alignSelf: 'center', marginTop: 10, marginBottom: 4 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-  title: { fontSize: 18, fontWeight: '700', color: '#0f172a' },
-  closeBtn: { fontSize: 20, color: '#94a3b8', padding: 4 },
+  backdrop: { flex: 1, backgroundColor: colors.overlay },
+  sheet: { backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, maxHeight: '85%', paddingBottom: spacing.xxxl },
+  handle: { width: 36, height: 4, backgroundColor: colors.border, borderRadius: 2, alignSelf: 'center', marginTop: spacing.sm + 2, marginBottom: spacing.xs },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: spacing.lg, paddingBottom: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.tagBg },
+  title: { fontSize: fontSize.lg + 1, fontWeight: fontWeight.bold, color: colors.text },
+  closeBtn: { fontSize: fontSize.xl, color: colors.textTertiary, padding: spacing.xs },
 });

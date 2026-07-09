@@ -4,6 +4,7 @@ import {
 } from 'react-native';
 import * as LocalAuthentication from 'expo-local-authentication';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { colors, spacing, radius, fontSize, fontWeight } from '../theme/tokens';
 
 const BIOMETRIC_ENABLED_KEY = 'biometric_enabled';
 
@@ -82,8 +83,8 @@ export default function BiometricGate({ children }: BiometricGateProps) {
 
   if (checking) {
     return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#0284c7" />
+      <View style={styles.container} accessibilityLabel="Checking biometric authentication">
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -95,7 +96,7 @@ export default function BiometricGate({ children }: BiometricGateProps) {
         <View style={styles.lockIcon}><Text style={styles.lockEmoji}>🔒</Text></View>
         <Text style={styles.title}>Finance Tracker</Text>
         <Text style={styles.subtitle}>Authenticate to continue</Text>
-        <TouchableOpacity style={styles.authBtn} onPress={authenticate}>
+        <TouchableOpacity style={styles.authBtn} onPress={authenticate} accessibilityLabel={`Unlock with ${typeLabel}`} accessibilityRole="button">
           <Text style={styles.authBtnText}>Unlock with {typeLabel}</Text>
         </TouchableOpacity>
       </View>
@@ -106,11 +107,11 @@ export default function BiometricGate({ children }: BiometricGateProps) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0f172a', padding: 24 },
-  lockIcon: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#1e293b', justifyContent: 'center', alignItems: 'center', marginBottom: 24 },
+  container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.text, padding: spacing.xxl },
+  lockIcon: { width: 80, height: 80, borderRadius: 40, backgroundColor: colors.tagBg, justifyContent: 'center', alignItems: 'center', marginBottom: spacing.xxl },
   lockEmoji: { fontSize: 36 },
-  title: { fontSize: 24, fontWeight: '700', color: '#fff', marginBottom: 8 },
-  subtitle: { fontSize: 15, color: '#94a3b8', marginBottom: 32 },
-  authBtn: { backgroundColor: '#0284c7', paddingHorizontal: 32, paddingVertical: 16, borderRadius: 14 },
-  authBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  title: { fontSize: fontSize.xxl, fontWeight: fontWeight.bold, color: colors.textInverse, marginBottom: spacing.sm },
+  subtitle: { fontSize: fontSize.base, color: colors.textTertiary, marginBottom: spacing.xxxl },
+  authBtn: { backgroundColor: colors.primary, paddingHorizontal: spacing.xxxl, paddingVertical: spacing.lg, borderRadius: radius.lg },
+  authBtnText: { color: colors.textInverse, fontSize: fontSize.base + 1, fontWeight: fontWeight.semibold },
 });

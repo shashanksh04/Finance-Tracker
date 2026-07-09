@@ -1,166 +1,117 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Alert } from 'react-native';
+import React, { useState, useCallback, useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Switch } from 'react-native';
 import { alertsApi } from '../services/api';
 import { useHaptics } from '../hooks/useHaptics';
-import Modal from '../components/ui/Modal';
-import { formatRelativeTime } from '../utils/format';
-import type { Alert as AlertType, AlertSeverity } from '../types';
+import { useOfflineList } from '../hooks/useOfflineData';
+import { repository } from '../database/repository';
+import { TABLES } from '../database/schema';
+import { ListSkeleton } from '../components/ui/SkeletonLoader';
+import { formatDate } from '../utils/format';
+import type { Alert, AlertPreferences } from '../types';
+import { colors, spacing, radius, fontSize, fontWeight, shadow } from '../theme/tokens';
 
-const SEVERITY_COLORS: Record<AlertSeverity, { bg: string; text: string; icon: string }> = {
-  info: { bg: '#e0f2fe', text: '#0284c7', icon: 'ℹ️' },
-  warning: { bg: '#fef3c7', text: '#f59e0b', icon: '⚠️' },
-  critical: { bg: '#fce7f3', text: '#ef4444', icon: '🚨' },
-};
+const SEVERITY_COLORS: Record<string, string> = { critical: colors.danger, warning: colors.warning, info: colors.primary, success: colors.success };
 
 export default function AlertsScreen() {
   const { success: hapticSuccess, light: hapticLight } = useHaptics();
-  const [alerts, setAlerts] = useState<AlertType[]>([]);
-  const [preferences, setPreferences] = useState<Record<string, any> | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [showPrefs, setShowPrefs] = useState(false);
+  const { data: alerts, loading, refreshing, refresh, refreshFromApi } = useOfflineList<Alert>(TABLES.ALERTS, {
+    orderBy: 'created_at DESC',
+    apiFetch: () => alertsApi.list({ unread_only: false }),
+    mapApiResponse: (res) => res.data?.items || res.data || [],
+  });
+  const [preferences, setPreferences] = useState<AlertPreferences | null>(null);
+  const [loadingPrefs, setLoadingPrefs] = useState(true);
 
-  const fetchData = useCallback(async () => {
-    try {
-      const [aRes, pRes] = await Promise.all([alertsApi.list({ unread_only: false }), alertsApi.getPreferences()]);
-      setAlerts(aRes.data?.items || aRes.data || []);
-      setPreferences(pRes.data);
-    } catch {
-    } finally {
-      setLoading(false); setRefreshing(false);
-    }
+  const loadPreferences = useCallback(async () => {
+    try { const pRes = await alertsApi.getPreferences(); setPreferences(pRes.data); } catch { setPreferences(null as any); } finally { setLoadingPrefs(false); }
   }, []);
+  React.useEffect(() => { loadPreferences(); }, [loadPreferences]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
-
-  const handleMarkRead = async (id: string) => {
-    try { await alertsApi.read(id); hapticLight(); fetchData(); } catch {}
-  };
-
-  const handleDismiss = async (id: string) => {
-    try { await alertsApi.dismiss(id); fetchData(); } catch {}
-  };
-
-  const handleGenerate = async () => {
+  const markRead = async (id: string) => { try { await alertsApi.read(id); await repository.update(TABLES.ALERTS, id, { is_read: true }); hapticLight(); refresh(); } catch { Alert.alert('Error', 'Failed to mark alert as read.'); } };
+  const dismiss = async (id: string) => { try { await alertsApi.dismiss(id); await repository.update(TABLES.ALERTS, id, { dismissed: true }); refresh(); } catch { Alert.alert('Error', 'Failed to dismiss alert.'); } };
+  const generateAlerts = async () => { try { await alertsApi.generate(); refresh(); } catch { Alert.alert('Error', 'Failed to generate alerts.'); } };
+  const togglePref = async (type: string) => {
+    if (!preferences) return;
     try {
-      await alertsApi.generate();
-      hapticSuccess();
-      fetchData();
-    } catch {}
-  };
-
-  const togglePreference = async (type: string) => {
-    if (!preferences?.[type]) return;
-    try {
+      const updated = { ...preferences, [type]: { ...preferences[type], enabled: !preferences[type].enabled } };
       await alertsApi.updatePreferences(type, { enabled: !preferences[type].enabled });
-      fetchData();
-    } catch {}
+      setPreferences(updated);
+    } catch { Alert.alert('Error', 'Failed to update preference.'); }
   };
 
-  if (loading) return <View style={styles.centered}><ActivityIndicator size="large" color="#0284c7" /></View>;
+  const visible = useMemo(() => alerts.filter((a) => !a.dismissed), [alerts]);
 
-  const active = alerts.filter((a) => !a.is_dismissed);
-  const unread = active.filter((a) => !a.is_read);
+  if (loading || loadingPrefs) return <ListSkeleton />;
 
   return (
     <View style={styles.container}>
-      <View style={styles.actions}>
-        <TouchableOpacity style={styles.actionBtn} onPress={handleGenerate}>
-          <Text style={styles.actionBtnText}>Generate Alerts</Text>
+      <ScrollView refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refreshFromApi} />}>
+        <TouchableOpacity style={styles.generateBtn} onPress={generateAlerts}>
+          <Text style={styles.generateBtnText}>Generate Alerts</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.actionBtn, styles.prefsBtn]} onPress={() => setShowPrefs(true)}>
-          <Text style={styles.actionBtnText}>Preferences</Text>
-        </TouchableOpacity>
-      </View>
 
-      <View style={styles.countRow}>
-        <Text style={styles.countText}>{unread.length} unread · {active.length} active</Text>
-      </View>
-
-      <ScrollView refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} />}>
-        {active.map((a) => {
-          const sev = SEVERITY_COLORS[a.severity] || SEVERITY_COLORS.info;
-          return (
-            <View key={a.id} style={[styles.alertCard, !a.is_read && styles.unreadCard]}>
-              <View style={[styles.severityBar, { backgroundColor: sev.text }]} />
-              <View style={styles.alertBody}>
-                <View style={styles.alertHeader}>
-                  <Text style={styles.alertIcon}>{sev.icon}</Text>
-                  <Text style={styles.alertTitle}>{a.title}</Text>
+        {preferences && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Notification Preferences</Text>
+            {Object.entries(preferences).map(([key, pref]) => (
+              <View key={key} style={styles.prefRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.prefName}>{key.replace(/_/g, ' ')}</Text>
+                  {pref.description ? <Text style={styles.prefDesc}>{pref.description}</Text> : null}
                 </View>
-                <Text style={styles.alertMsg}>{a.message}</Text>
-                <Text style={styles.alertTime}>{formatRelativeTime(a.created_at)}</Text>
-                <View style={styles.alertActions}>
-                  {!a.is_read && (
-                    <TouchableOpacity style={styles.alertActionBtn} onPress={() => handleMarkRead(a.id)}>
-                      <Text style={styles.alertActionText}>Mark Read</Text>
-                    </TouchableOpacity>
-                  )}
-                  <TouchableOpacity style={[styles.alertActionBtn, styles.dismissBtn]} onPress={() => handleDismiss(a.id)}>
-                    <Text style={[styles.alertActionText, { color: '#94a3b8' }]}>Dismiss</Text>
+                <Switch value={pref.enabled} onValueChange={() => togglePref(key)} trackColor={{ false: colors.border, true: colors.primaryLight }} thumbColor={pref.enabled ? colors.primary : colors.textTertiary} />
+              </View>
+            ))}
+          </View>
+        )}
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Alerts ({visible.filter((a) => !a.is_read).length} unread)</Text>
+          {visible.map((a) => (
+            <View key={a.id} style={[styles.alertCard, { borderLeftColor: SEVERITY_COLORS[a.severity] || colors.textTertiary }]}>
+              <View style={styles.alertHeader}>
+                <Text style={[styles.alertSeverity, { color: SEVERITY_COLORS[a.severity] || colors.textTertiary }]}>{a.severity.toUpperCase()}</Text>
+                <Text style={styles.alertDate}>{formatDate(a.created_at)}</Text>
+              </View>
+              <Text style={styles.alertTitle}>{a.title}</Text>
+              {a.message ? <Text style={styles.alertMessage}>{a.message}</Text> : null}
+              <View style={styles.alertActions}>
+                {!a.is_read && (
+                  <TouchableOpacity style={styles.alertActionBtn} onPress={() => markRead(a.id)}>
+                    <Text style={styles.alertActionText}>Mark Read</Text>
                   </TouchableOpacity>
-                </View>
+                )}
+                <TouchableOpacity style={[styles.alertActionBtn, { borderColor: colors.dangerLight }]} onPress={() => dismiss(a.id)}>
+                  <Text style={[styles.alertActionText, { color: colors.danger }]}>Dismiss</Text>
+                </TouchableOpacity>
               </View>
-            </View>
-          );
-        })}
-        {active.length === 0 && <Text style={styles.emptyText}>All clear! No alerts.</Text>}
-        <View style={{ height: 80 }} />
-      </ScrollView>
-
-      <Modal visible={showPrefs} onClose={() => setShowPrefs(false)} title="Alert Preferences">
-        <View style={styles.prefsContainer}>
-          {preferences && Object.entries(preferences).map(([key, pref]: [string, any]) => (
-            <View key={key} style={styles.prefRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.prefName}>{key.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}</Text>
-                {pref.threshold !== undefined && <Text style={styles.prefDetail}>Threshold: {pref.threshold}</Text>}
-              </View>
-              <TouchableOpacity
-                style={[styles.toggleSwitch, pref.enabled ? styles.toggleOn : styles.toggleOff]}
-                onPress={() => togglePreference(key)}
-              >
-                <View style={[styles.toggleKnob, pref.enabled ? styles.knobOn : styles.knobOff]} />
-              </TouchableOpacity>
             </View>
           ))}
+          {visible.length === 0 && <Text style={styles.empty}>No alerts</Text>}
         </View>
-      </Modal>
+        <View style={{ height: 40 }} />
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  actions: { flexDirection: 'row', padding: 12, gap: 8 },
-  actionBtn: { flex: 1, backgroundColor: '#0284c7', padding: 12, borderRadius: 10, alignItems: 'center' },
-  actionBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
-  prefsBtn: { backgroundColor: '#64748b' },
-  countRow: { paddingHorizontal: 12, paddingBottom: 4 },
-  countText: { fontSize: 12, color: '#64748b' },
-  alertCard: { flexDirection: 'row', backgroundColor: '#fff', margin: 12, marginBottom: 4, borderRadius: 12, overflow: 'hidden' },
-  unreadCard: { borderWidth: 1, borderColor: '#93c5fd' },
-  severityBar: { width: 4 },
-  alertBody: { flex: 1, padding: 14 },
-  alertHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  alertIcon: { fontSize: 16 },
-  alertTitle: { fontSize: 14, fontWeight: '600', color: '#0f172a' },
-  alertMsg: { fontSize: 13, color: '#64748b', marginTop: 4, lineHeight: 18 },
-  alertTime: { fontSize: 11, color: '#94a3b8', marginTop: 6 },
-  alertActions: { flexDirection: 'row', gap: 8, marginTop: 8 },
-  alertActionBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: '#e0f2fe' },
-  alertActionText: { fontSize: 12, color: '#0284c7', fontWeight: '600' },
-  dismissBtn: { backgroundColor: '#f1f5f9' },
-  emptyText: { fontSize: 13, color: '#94a3b8', textAlign: 'center', padding: 20 },
-  prefsContainer: { padding: 20 },
-  prefRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-  prefName: { fontSize: 15, color: '#0f172a', fontWeight: '500', textTransform: 'capitalize' },
-  prefDetail: { fontSize: 12, color: '#94a3b8', marginTop: 2 },
-  toggleSwitch: { width: 48, height: 28, borderRadius: 14, justifyContent: 'center', padding: 2 },
-  toggleOn: { backgroundColor: '#0284c7' },
-  toggleOff: { backgroundColor: '#e2e8f0' },
-  toggleKnob: { width: 24, height: 24, borderRadius: 12, backgroundColor: '#fff' },
-  knobOn: { alignSelf: 'flex-end' },
-  knobOff: { alignSelf: 'flex-start' },
+  container: { flex: 1, backgroundColor: colors.background },
+  generateBtn: { backgroundColor: colors.primary, padding: spacing.lg, margin: spacing.md, borderRadius: radius.md, alignItems: 'center' },
+  generateBtnText: { color: colors.textInverse, fontSize: fontSize.base, fontWeight: fontWeight.semibold },
+  section: { padding: spacing.md, paddingBottom: 0 },
+  sectionTitle: { fontSize: fontSize.sm, fontWeight: fontWeight.bold, color: colors.text, marginBottom: spacing.sm, textTransform: 'uppercase', letterSpacing: 0.5 },
+  prefRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, padding: spacing.lg, borderRadius: radius.md, marginBottom: spacing.sm, ...shadow.sm },
+  prefName: { fontSize: fontSize.base, fontWeight: fontWeight.medium, color: colors.text, textTransform: 'capitalize' },
+  prefDesc: { fontSize: fontSize.xs, color: colors.textTertiary, marginTop: 2 },
+  alertCard: { backgroundColor: colors.card, padding: spacing.lg, borderRadius: radius.md, marginBottom: spacing.sm, borderLeftWidth: 4, ...shadow.sm },
+  alertHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.xs },
+  alertSeverity: { fontSize: fontSize.xs, fontWeight: fontWeight.bold },
+  alertDate: { fontSize: fontSize.xs, color: colors.textTertiary },
+  alertTitle: { fontSize: fontSize.base, fontWeight: fontWeight.semibold, color: colors.text },
+  alertMessage: { fontSize: fontSize.sm, color: colors.textSecondary, marginTop: spacing.xs },
+  alertActions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
+  alertActionBtn: { paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.border },
+  alertActionText: { fontSize: fontSize.xs, color: colors.primary, fontWeight: fontWeight.semibold },
+  empty: { fontSize: fontSize.sm, color: colors.textTertiary, textAlign: 'center', padding: spacing.xl },
 });

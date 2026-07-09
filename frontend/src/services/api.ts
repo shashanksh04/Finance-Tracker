@@ -226,6 +226,10 @@ export const onboardingApi = {
   complete: () => api.patch('/auth/onboarding'),
 };
 
+export const adminApi = {
+  getStats: () => api.get('/admin/stats'),
+};
+
 export const importApi = {
   preview: (file: File, options: any = {}) => {
     const form = new FormData();

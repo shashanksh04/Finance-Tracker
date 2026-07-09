@@ -1,14 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Switch } from 'react-native';
 import { useAuthStore } from '../stores/authStore';
 import { usePreferencesStore } from '../stores/preferencesStore';
 import { setBiometricEnabled } from '../components/BiometricGate';
 import Modal from '../components/ui/Modal';
+import { colors, spacing, radius, fontSize, fontWeight, shadow } from '../theme/tokens';
 
 const CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD', 'SGD', 'CHF', 'CNY'];
 
 export default function SettingsScreen() {
-  const { user, logout } = useAuthStore();
+  const { user } = useAuthStore();
   const { prefs, update } = usePreferencesStore();
   const [showProfile, setShowProfile] = useState(false);
   const [showCurrency, setShowCurrency] = useState(false);
@@ -24,9 +25,7 @@ export default function SettingsScreen() {
       await authApi.updateProfile({ full_name: fullName.trim() });
       setShowProfile(false);
       Alert.alert('Success', 'Profile updated');
-    } catch (e: any) {
-      Alert.alert('Error', e.response?.data?.detail || 'Update failed');
-    }
+    } catch (e: any) { Alert.alert('Error', e.response?.data?.detail || 'Update failed'); }
   };
 
   const handleChangePassword = async () => {
@@ -35,12 +34,9 @@ export default function SettingsScreen() {
     try {
       const { authApi } = require('../services/api');
       await authApi.changePassword(currentPw, newPw);
-      setShowPassword(false);
-      setCurrentPw(''); setNewPw('');
+      setShowPassword(false); setCurrentPw(''); setNewPw('');
       Alert.alert('Success', 'Password changed');
-    } catch (e: any) {
-      Alert.alert('Error', e.response?.data?.detail || 'Change failed');
-    }
+    } catch (e: any) { Alert.alert('Error', e.response?.data?.detail || 'Change failed'); }
   };
 
   return (
@@ -51,11 +47,11 @@ export default function SettingsScreen() {
           <Text style={styles.rowLabel}>Profile</Text>
           <Text style={styles.rowValue}>{user?.full_name}</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.row} onPress={() => { setCurrentPw(''); setNewPw(''); setShowPassword(true); }}>
+        <TouchableOpacity style={styles.row} onPress={() => { setCurrentPw(''); setNewPw(''); setShowPassword(true); }} accessibilityLabel="Change password" accessibilityRole="button">
           <Text style={styles.rowLabel}>Change Password</Text>
           <Text style={styles.rowArrow}>›</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.row} onPress={() => setShowCurrency(true)}>
+        <TouchableOpacity style={styles.row} onPress={() => setShowCurrency(true)} accessibilityLabel="Select currency" accessibilityRole="button">
           <Text style={styles.rowLabel}>Currency</Text>
           <Text style={styles.rowValue}>{prefs.currency}</Text>
         </TouchableOpacity>
@@ -65,19 +61,19 @@ export default function SettingsScreen() {
         <Text style={styles.sectionTitle}>App</Text>
         <View style={styles.row}>
           <Text style={styles.rowLabel}>Face ID / Fingerprint</Text>
-          <Switch value={prefs.biometricEnabled} onValueChange={(v) => { update({ biometricEnabled: v }); setBiometricEnabled(v); }} trackColor={{ false: '#e2e8f0', true: '#93c5fd' }} thumbColor={prefs.biometricEnabled ? '#0284c7' : '#94a3b8'} />
+          <Switch value={prefs.biometricEnabled} onValueChange={(v) => { update({ biometricEnabled: v }); setBiometricEnabled(v); }} trackColor={{ false: colors.border, true: colors.primaryLight }} thumbColor={prefs.biometricEnabled ? colors.primary : colors.textTertiary} accessibilityLabel="Face ID / Fingerprint" />
         </View>
         <View style={styles.row}>
           <Text style={styles.rowLabel}>Dark Mode</Text>
-          <Switch value={prefs.darkMode} onValueChange={(v) => update({ darkMode: v })} trackColor={{ false: '#e2e8f0', true: '#93c5fd' }} thumbColor={prefs.darkMode ? '#0284c7' : '#94a3b8'} />
+          <Switch value={prefs.darkMode} onValueChange={(v) => update({ darkMode: v })} trackColor={{ false: colors.border, true: colors.primaryLight }} thumbColor={prefs.darkMode ? colors.primary : colors.textTertiary} accessibilityLabel="Dark Mode" />
         </View>
         <View style={styles.row}>
           <Text style={styles.rowLabel}>Auto Dark Mode</Text>
-          <Switch value={prefs.darkModeAutoSchedule} onValueChange={(v) => update({ darkModeAutoSchedule: v })} trackColor={{ false: '#e2e8f0', true: '#93c5fd' }} thumbColor={prefs.darkModeAutoSchedule ? '#0284c7' : '#94a3b8'} />
+          <Switch value={prefs.darkModeAutoSchedule} onValueChange={(v) => update({ darkModeAutoSchedule: v })} trackColor={{ false: colors.border, true: colors.primaryLight }} thumbColor={prefs.darkModeAutoSchedule ? colors.primary : colors.textTertiary} accessibilityLabel="Auto Dark Mode" />
         </View>
         <View style={styles.row}>
           <Text style={styles.rowLabel}>Notifications</Text>
-          <Switch value={prefs.notificationsEnabled} onValueChange={(v) => update({ notificationsEnabled: v })} trackColor={{ false: '#e2e8f0', true: '#93c5fd' }} thumbColor={prefs.notificationsEnabled ? '#0284c7' : '#94a3b8'} />
+          <Switch value={prefs.notificationsEnabled} onValueChange={(v) => update({ notificationsEnabled: v })} trackColor={{ false: colors.border, true: colors.primaryLight }} thumbColor={prefs.notificationsEnabled ? colors.primary : colors.textTertiary} accessibilityLabel="Notifications" />
         </View>
         <View style={styles.row}>
           <Text style={styles.rowLabel}>Budget Alert at</Text>
@@ -93,16 +89,16 @@ export default function SettingsScreen() {
         </View>
       </View>
 
-      <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
+      <TouchableOpacity style={styles.logoutBtn}>
         <Text style={styles.logoutText}>Sign Out</Text>
       </TouchableOpacity>
 
       <Modal visible={showProfile} onClose={() => setShowProfile(false)} title="Edit Profile">
         <View style={styles.formContainer}>
           <Text style={styles.fieldLabel}>Full Name</Text>
-          <TextInput style={styles.input} value={fullName} onChangeText={setFullName} placeholder="Your name" placeholderTextColor="#94a3b8" />
-          <Text style={[styles.fieldLabel, { marginTop: 8 }]}>Email</Text>
-          <TextInput style={[styles.input, { backgroundColor: '#f1f5f9', color: '#94a3b8' }]} value={user?.email || ''} editable={false} />
+          <TextInput style={styles.input} value={fullName} onChangeText={setFullName} placeholder="Your name" placeholderTextColor={colors.textTertiary} />
+          <Text style={[styles.fieldLabel, { marginTop: spacing.sm }]}>Email</Text>
+          <TextInput style={[styles.input, { backgroundColor: colors.border, color: colors.textTertiary }]} value={user?.email || ''} editable={false} />
           <TouchableOpacity style={styles.saveBtn} onPress={handleUpdateProfile}><Text style={styles.saveBtnText}>Save</Text></TouchableOpacity>
         </View>
       </Modal>
@@ -110,9 +106,9 @@ export default function SettingsScreen() {
       <Modal visible={showPassword} onClose={() => setShowPassword(false)} title="Change Password">
         <View style={styles.formContainer}>
           <Text style={styles.fieldLabel}>Current Password</Text>
-          <TextInput style={styles.input} value={currentPw} onChangeText={setCurrentPw} secureTextEntry placeholder="Enter current password" placeholderTextColor="#94a3b8" />
-          <Text style={[styles.fieldLabel, { marginTop: 12 }]}>New Password</Text>
-          <TextInput style={styles.input} value={newPw} onChangeText={setNewPw} secureTextEntry placeholder="Min 8 characters" placeholderTextColor="#94a3b8" />
+          <TextInput style={styles.input} value={currentPw} onChangeText={setCurrentPw} secureTextEntry placeholder="Enter current password" placeholderTextColor={colors.textTertiary} />
+          <Text style={[styles.fieldLabel, { marginTop: spacing.md }]}>New Password</Text>
+          <TextInput style={styles.input} value={newPw} onChangeText={setNewPw} secureTextEntry placeholder="Min 8 characters" placeholderTextColor={colors.textTertiary} />
           <TouchableOpacity style={styles.saveBtn} onPress={handleChangePassword}><Text style={styles.saveBtnText}>Change Password</Text></TouchableOpacity>
         </View>
       </Modal>
@@ -121,7 +117,7 @@ export default function SettingsScreen() {
         <View style={styles.formContainer}>
           {CURRENCIES.map((c) => (
             <TouchableOpacity key={c} style={[styles.currencyRow, prefs.currency === c && styles.currencyActive]} onPress={() => { update({ currency: c }); setShowCurrency(false); }}>
-              <Text style={[styles.currencyText, prefs.currency === c && { color: '#0284c7', fontWeight: '700' }]}>{c}</Text>
+              <Text style={[styles.currencyText, prefs.currency === c && { color: colors.primary, fontWeight: fontWeight.bold }]}>{c}</Text>
               {prefs.currency === c && <Text style={styles.checkmark}>✓</Text>}
             </TouchableOpacity>
           ))}
@@ -132,22 +128,22 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
-  section: { backgroundColor: '#fff', marginTop: 16, marginHorizontal: 16, borderRadius: 12, overflow: 'hidden' },
-  sectionTitle: { fontSize: 13, fontWeight: '600', color: '#64748b', textTransform: 'uppercase', padding: 16, paddingBottom: 8 },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderTopWidth: 1, borderTopColor: '#f1f5f9' },
-  rowLabel: { fontSize: 16, color: '#0f172a' },
-  rowValue: { fontSize: 14, color: '#94a3b8' },
-  rowArrow: { fontSize: 20, color: '#94a3b8' },
-  logoutBtn: { margin: 16, marginTop: 24, padding: 16, borderRadius: 12, backgroundColor: '#fff', alignItems: 'center', borderWidth: 1, borderColor: '#fecaca' },
-  logoutText: { fontSize: 16, fontWeight: '600', color: '#dc2626' },
-  formContainer: { padding: 20 },
-  fieldLabel: { fontSize: 14, fontWeight: '600', color: '#334155', marginBottom: 6 },
-  input: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, padding: 14, fontSize: 16, color: '#0f172a', backgroundColor: '#f8fafc' },
-  saveBtn: { backgroundColor: '#0284c7', padding: 16, borderRadius: 8, alignItems: 'center', marginTop: 16 },
-  saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  currencyRow: { flexDirection: 'row', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-  currencyActive: { backgroundColor: '#f0f9ff' },
-  currencyText: { fontSize: 16, color: '#0f172a' },
-  checkmark: { fontSize: 18, color: '#0284c7', fontWeight: '700' },
+  container: { flex: 1, backgroundColor: colors.background },
+  section: { backgroundColor: colors.card, marginTop: spacing.md, marginHorizontal: spacing.md, borderRadius: radius.md, overflow: 'hidden', ...shadow.sm },
+  sectionTitle: { fontSize: fontSize.xs, fontWeight: fontWeight.semibold, color: colors.textTertiary, textTransform: 'uppercase', padding: spacing.lg, paddingBottom: spacing.sm, letterSpacing: 0.5 },
+  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: spacing.lg, borderTopWidth: 1, borderTopColor: colors.border },
+  rowLabel: { fontSize: fontSize.base, color: colors.text },
+  rowValue: { fontSize: fontSize.sm, color: colors.textTertiary },
+  rowArrow: { fontSize: 22, color: colors.textTertiary },
+  logoutBtn: { margin: spacing.md, marginTop: spacing.xxl, padding: spacing.lg, borderRadius: radius.md, backgroundColor: colors.card, alignItems: 'center', borderWidth: 1, borderColor: colors.dangerLight },
+  logoutText: { fontSize: fontSize.base, fontWeight: fontWeight.semibold, color: colors.danger },
+  formContainer: { padding: spacing.xl },
+  fieldLabel: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textSecondary, marginBottom: spacing.sm },
+  input: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: spacing.md, fontSize: fontSize.base, color: colors.text, backgroundColor: colors.background },
+  saveBtn: { backgroundColor: colors.primary, padding: spacing.lg, borderRadius: radius.sm, alignItems: 'center', marginTop: spacing.lg },
+  saveBtnText: { color: colors.textInverse, fontSize: fontSize.base, fontWeight: fontWeight.semibold },
+  currencyRow: { flexDirection: 'row', justifyContent: 'space-between', padding: spacing.lg, borderBottomWidth: 1, borderBottomColor: colors.border },
+  currencyActive: { backgroundColor: colors.primaryLight },
+  currencyText: { fontSize: fontSize.base, color: colors.text },
+  checkmark: { fontSize: 18, color: colors.primary, fontWeight: fontWeight.bold },
 });

@@ -1,9 +1,13 @@
 import React from 'react';
 import { ActivityIndicator, View, Text } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useAuthStore } from '../stores/authStore';
+import { colors, fontSize, fontWeight } from '../theme/tokens';
+
+const defaultHeader = { headerStyle: { backgroundColor: colors.surface }, headerTintColor: colors.text, headerTitleStyle: { fontWeight: fontWeight.semibold, fontSize: fontSize.lg } };
 
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
@@ -21,15 +25,12 @@ import AnalysisScreen from '../screens/AnalysisScreen';
 import CopilotScreen from '../screens/CopilotScreen';
 import CameraOCRScreen from '../screens/CameraOCRScreen';
 import SettingsScreen from '../screens/SettingsScreen';
-
-function PlaceholderScreen({ route }: any) {
-  return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f8fafc' }}>
-      <Text style={{ fontSize: 18, color: '#0f172a', fontWeight: '600' }}>{route?.name || 'Screen'}</Text>
-      <Text style={{ fontSize: 13, color: '#94a3b8', marginTop: 4 }}>Coming soon</Text>
-    </View>
-  );
-}
+import StreaksScreen from '../screens/StreaksScreen';
+import BadgesScreen from '../screens/BadgesScreen';
+import SpendingStoryScreen from '../screens/SpendingStoryScreen';
+import AddTransactionScreen from '../screens/AddTransactionScreen';
+import CalendarSyncScreen from '../screens/CalendarSyncScreen';
+import SmsImportScreen from '../screens/SmsImportScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -40,7 +41,7 @@ function TabIcon({ label, focused }: { label: string; focused: boolean }) {
   };
   const icon = icons[label] || '📄';
   return (
-    <View style={{ alignItems: 'center', opacity: focused ? 1 : 0.5 }}>
+    <View style={{ alignItems: 'center', opacity: focused ? 1 : 0.5 }} accessibilityLabel={label} accessibilityRole="tab">
       <Text style={{ fontSize: 20 }}>{icon}</Text>
     </View>
   );
@@ -48,21 +49,23 @@ function TabIcon({ label, focused }: { label: string; focused: boolean }) {
 
 function MainTabs() {
   return (
-    <Tab.Navigator
-      screenOptions={({ route }) => ({
-        tabBarIcon: ({ focused }) => <TabIcon label={route.name} focused={focused} />,
-        tabBarActiveTintColor: '#0284c7',
-        tabBarInactiveTintColor: '#94a3b8',
-        tabBarStyle: { backgroundColor: '#fff', borderTopColor: '#e2e8f0', paddingBottom: 8, paddingTop: 8, height: 60 },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
-        headerShown: false,
-      })}
-    >
-      <Tab.Screen name="Dashboard" component={DashboardScreen} />
-      <Tab.Screen name="Transactions" component={TransactionsScreen} />
-      <Tab.Screen name="Accounts" component={AccountsScreen} />
-      <Tab.Screen name="More" component={MoreScreen} />
-    </Tab.Navigator>
+    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: '#f8fafc' }}>
+      <Tab.Navigator
+        screenOptions={({ route }) => ({
+          tabBarIcon: ({ focused }) => <TabIcon label={route.name} focused={focused} />,
+          tabBarActiveTintColor: colors.primary,
+          tabBarInactiveTintColor: colors.textTertiary,
+          tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border, paddingBottom: 28, paddingTop: 8, height: 76 },
+          tabBarLabelStyle: { fontSize: fontSize.xs, fontWeight: fontWeight.semibold },
+          headerShown: false,
+        })}
+      >
+        <Tab.Screen name="Dashboard" component={DashboardScreen} />
+        <Tab.Screen name="Transactions" component={TransactionsScreen} />
+        <Tab.Screen name="Accounts" component={AccountsScreen} />
+        <Tab.Screen name="More" component={MoreScreen} />
+      </Tab.Navigator>
+    </SafeAreaView>
   );
 }
 
@@ -92,16 +95,22 @@ export default function AppNavigator() {
         {isAuthenticated ? (
           <>
             <Stack.Screen name="MainTabs" component={MainTabs} />
-            <Stack.Screen name="Categories" component={CategoriesScreen} options={{ headerShown: true, title: 'Categories', headerStyle: { backgroundColor: '#fff' }, headerTintColor: '#0f172a' }} />
-            <Stack.Screen name="Budgets" component={BudgetsScreen} options={{ headerShown: true, title: 'Budgets', headerStyle: { backgroundColor: '#fff' }, headerTintColor: '#0f172a' }} />
-            <Stack.Screen name="Goals" component={GoalsScreen} options={{ headerShown: true, title: 'Goals', headerStyle: { backgroundColor: '#fff' }, headerTintColor: '#0f172a' }} />
-            <Stack.Screen name="Bills" component={BillsScreen} options={{ headerShown: true, title: 'Bills', headerStyle: { backgroundColor: '#fff' }, headerTintColor: '#0f172a' }} />
-            <Stack.Screen name="Recurring" component={RecurringScreen} options={{ headerShown: true, title: 'Recurring', headerStyle: { backgroundColor: '#fff' }, headerTintColor: '#0f172a' }} />
-            <Stack.Screen name="Alerts" component={AlertsScreen} options={{ headerShown: true, title: 'Alerts', headerStyle: { backgroundColor: '#fff' }, headerTintColor: '#0f172a' }} />
-            <Stack.Screen name="Analysis" component={AnalysisScreen} options={{ headerShown: true, title: 'Analysis', headerStyle: { backgroundColor: '#fff' }, headerTintColor: '#0f172a' }} />
-            <Stack.Screen name="Copilot" component={CopilotScreen} options={{ headerShown: true, title: 'AI Copilot', headerStyle: { backgroundColor: '#fff' }, headerTintColor: '#0f172a' }} />
-            <Stack.Screen name="CameraOCR" component={CameraOCRScreen} options={{ headerShown: true, title: 'Scan Receipt', headerStyle: { backgroundColor: '#fff' }, headerTintColor: '#0f172a' }} />
-            <Stack.Screen name="Settings" component={SettingsScreen} options={{ headerShown: true, title: 'Settings', headerStyle: { backgroundColor: '#fff' }, headerTintColor: '#0f172a' }} />
+            <Stack.Screen name="Categories" component={CategoriesScreen} options={{ headerShown: true, title: 'Categories', ...defaultHeader }} />
+            <Stack.Screen name="Budgets" component={BudgetsScreen} options={{ headerShown: true, title: 'Budgets', ...defaultHeader }} />
+            <Stack.Screen name="Goals" component={GoalsScreen} options={{ headerShown: true, title: 'Goals', ...defaultHeader }} />
+            <Stack.Screen name="Bills" component={BillsScreen} options={{ headerShown: true, title: 'Bills', ...defaultHeader }} />
+            <Stack.Screen name="Recurring" component={RecurringScreen} options={{ headerShown: true, title: 'Recurring', ...defaultHeader }} />
+            <Stack.Screen name="Alerts" component={AlertsScreen} options={{ headerShown: true, title: 'Alerts', ...defaultHeader }} />
+            <Stack.Screen name="Analysis" component={AnalysisScreen} options={{ headerShown: true, title: 'Analysis', ...defaultHeader }} />
+            <Stack.Screen name="Copilot" component={CopilotScreen} options={{ headerShown: true, title: 'AI Copilot', ...defaultHeader }} />
+            <Stack.Screen name="CameraOCR" component={CameraOCRScreen} options={{ headerShown: true, title: 'Scan Receipt', ...defaultHeader }} />
+            <Stack.Screen name="Settings" component={SettingsScreen} options={{ headerShown: true, title: 'Settings', ...defaultHeader }} />
+            <Stack.Screen name="AddTransaction" component={AddTransactionScreen} options={{ headerShown: true, title: 'Add Transaction', ...defaultHeader }} />
+            <Stack.Screen name="Streaks" component={StreaksScreen} options={{ headerShown: true, title: 'Streaks', ...defaultHeader }} />
+            <Stack.Screen name="Badges" component={BadgesScreen} options={{ headerShown: true, title: 'Badges', ...defaultHeader }} />
+            <Stack.Screen name="SpendingStory" component={SpendingStoryScreen} options={{ headerShown: true, title: 'Your Month', ...defaultHeader }} />
+            <Stack.Screen name="CalendarSync" component={CalendarSyncScreen} options={{ headerShown: true, title: 'Calendar Sync', ...defaultHeader }} />
+            <Stack.Screen name="SmsImport" component={SmsImportScreen} options={{ headerShown: true, title: 'Import from SMS', ...defaultHeader }} />
           </>
         ) : (
           <>

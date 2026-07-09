@@ -1,9 +1,10 @@
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, ArrowLeftRight, Wallet, Tags, PiggyBank,
-  Target, FileText, Repeat, BarChart3, Bot, Bell, Settings, X
+  Target, FileText, Repeat, BarChart3, Bot, Bell, Settings, Shield, X
 } from 'lucide-react';
 import { cn } from '../../utils/format';
+import { useAuthStore } from '../../store/authStore';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -26,6 +27,8 @@ interface SidebarProps {
 }
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
+  const user = useAuthStore((s) => s.user);
+  const isAdmin = user?.is_admin;
   return (
     <>
       <aside className={cn(
@@ -62,6 +65,23 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               {item.label}
             </NavLink>
           ))}
+          {isAdmin && (
+            <>
+              <div className="pt-3 pb-1">
+                <p className="px-3 text-[10px] font-semibold uppercase tracking-wider text-surface-400">Admin</p>
+              </div>
+              <NavLink
+                to="/admin"
+                end
+                className={({ isActive }) =>
+                  isActive ? 'sidebar-link-active' : 'sidebar-link-inactive'
+                }
+              >
+                <Shield className="w-5 h-5" />
+                Admin Dashboard
+              </NavLink>
+            </>
+          )}
         </nav>
 
         <div className="px-4 py-4 border-t border-surface-200 dark:border-surface-700">

@@ -3,10 +3,22 @@ export interface User {
   email: string;
   full_name: string;
   is_active: boolean;
+  is_admin: boolean;
   is_verified: boolean;
   onboarding_completed: boolean;
   created_at: string;
   settings?: Record<string, unknown>;
+}
+
+export interface DailyLoginCount {
+  date: string;
+  count: number;
+}
+
+export interface AdminStats {
+  total_users: number;
+  today_logins: number;
+  daily_logins: DailyLoginCount[];
 }
 
 export interface Account {

@@ -13,6 +13,7 @@ class User(Base):
     password_hash = Column(String, nullable=False)
     full_name = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
+    is_admin = Column(Boolean, default=False, server_default=text("false"))
     is_verified = Column(Boolean, default=False)
     onboarding_completed = Column(Boolean, default=False, server_default=text("false"))
     settings = Column(JSON, nullable=True)

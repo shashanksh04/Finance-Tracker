@@ -7,7 +7,7 @@ from sqlalchemy import engine_from_config, pool
 from alembic import context
 from app.core.config import settings
 from app.core.database import Base
-from app.models import user, account, category, category_rule, transaction, budget, recurring, goal, alert, bill, memory
+from app.models import user, account, category, category_rule, transaction, budget, recurring, goal, alert, bill, memory, login_record
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL_SYNC)

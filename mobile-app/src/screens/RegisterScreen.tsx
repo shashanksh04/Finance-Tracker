@@ -5,8 +5,11 @@ import {
   ScrollView,
 } from 'react-native';
 import { useAuthStore } from '../stores/authStore';
+import { useHaptics } from '../hooks/useHaptics';
+import { colors, spacing, radius, fontSize, fontWeight } from '../theme/tokens';
 
 export default function RegisterScreen({ navigation }: any) {
+  const { light: hapticLight } = useHaptics();
   const { register } = useAuthStore();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -56,10 +59,11 @@ export default function RegisterScreen({ navigation }: any) {
             value={fullName}
             onChangeText={(t) => { setFullName(t); setErrors((e) => ({ ...e, fullName: '' })); }}
             placeholder="John Doe"
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor={colors.textTertiary}
             autoCapitalize="words"
+            accessibilityLabel="Full name"
           />
-          {errors.fullName ? <Text style={styles.errorText}>{errors.fullName}</Text> : null}
+          {errors.fullName ? <Text style={styles.errorText} accessibilityLive="polite">{errors.fullName}</Text> : null}
 
           <Text style={styles.label}>Email</Text>
           <TextInput
@@ -67,12 +71,13 @@ export default function RegisterScreen({ navigation }: any) {
             value={email}
             onChangeText={(t) => { setEmail(t); setErrors((e) => ({ ...e, email: '' })); }}
             placeholder="you@example.com"
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor={colors.textTertiary}
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
+            accessibilityLabel="Email address"
           />
-          {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
+          {errors.email ? <Text style={styles.errorText} accessibilityLive="polite">{errors.email}</Text> : null}
 
           <Text style={styles.label}>Password</Text>
           <TextInput
@@ -80,10 +85,11 @@ export default function RegisterScreen({ navigation }: any) {
             value={password}
             onChangeText={(t) => { setPassword(t); setErrors((e) => ({ ...e, password: '' })); }}
             placeholder="Min 8 characters"
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor={colors.textTertiary}
             secureTextEntry
+            accessibilityLabel="Password"
           />
-          {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
+          {errors.password ? <Text style={styles.errorText} accessibilityLive="polite">{errors.password}</Text> : null}
 
           <Text style={styles.label}>Confirm Password</Text>
           <TextInput
@@ -91,20 +97,21 @@ export default function RegisterScreen({ navigation }: any) {
             value={confirmPassword}
             onChangeText={(t) => { setConfirmPassword(t); setErrors((e) => ({ ...e, confirmPassword: '' })); }}
             placeholder="Re-enter password"
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor={colors.textTertiary}
             secureTextEntry
+            accessibilityLabel="Confirm password"
           />
-          {errors.confirmPassword ? <Text style={styles.errorText}>{errors.confirmPassword}</Text> : null}
+          {errors.confirmPassword ? <Text style={styles.errorText} accessibilityLive="polite">{errors.confirmPassword}</Text> : null}
 
-          <TouchableOpacity style={[styles.button, loading && { opacity: 0.6 }]} onPress={handleRegister} disabled={loading}>
+          <TouchableOpacity style={[styles.button, loading && { opacity: 0.6 }]} onPress={() => { hapticLight(); handleRegister(); }} disabled={loading} accessibilityLabel="Create account" accessibilityRole="button">
             {loading ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={colors.textInverse} />
             ) : (
               <Text style={styles.buttonText}>Create Account</Text>
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.linkBtn} onPress={() => navigation.goBack()}>
+          <TouchableOpacity style={styles.linkBtn} onPress={() => { hapticLight(); navigation.goBack(); }} accessibilityLabel="Go back to sign in" accessibilityRole="button">
             <Text style={styles.linkText}>Already have an account? <Text style={styles.linkHighlight}>Sign In</Text></Text>
           </TouchableOpacity>
         </View>
@@ -114,20 +121,20 @@ export default function RegisterScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  content: { flexGrow: 1, justifyContent: 'center', padding: 24 },
-  header: { alignItems: 'center', marginBottom: 32 },
-  logo: { fontSize: 64, marginBottom: 12 },
-  title: { fontSize: 28, fontWeight: '700', color: '#0f172a' },
-  subtitle: { fontSize: 15, color: '#64748b', marginTop: 4 },
+  container: { flex: 1, backgroundColor: colors.surface },
+  content: { flexGrow: 1, justifyContent: 'center', padding: spacing.xxl },
+  header: { alignItems: 'center', marginBottom: spacing.xxxl },
+  logo: { fontSize: 64, marginBottom: spacing.md },
+  title: { fontSize: fontSize.xxl + 4, fontWeight: fontWeight.bold, color: colors.text },
+  subtitle: { fontSize: fontSize.base, color: colors.slate500, marginTop: spacing.xs },
   form: { width: '100%' },
-  label: { fontSize: 14, fontWeight: '600', color: '#334155', marginBottom: 6 },
-  input: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 12, padding: 14, fontSize: 16, color: '#0f172a', marginBottom: 4 },
-  inputError: { borderColor: '#dc2626' },
-  errorText: { fontSize: 12, color: '#dc2626', marginBottom: 8, marginLeft: 4 },
-  button: { backgroundColor: '#0284c7', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 16 },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  linkBtn: { marginTop: 20, alignItems: 'center' },
-  linkText: { fontSize: 14, color: '#64748b' },
-  linkHighlight: { color: '#0284c7', fontWeight: '600' },
+  label: { fontSize: fontSize.base - 1, fontWeight: fontWeight.semibold, color: colors.textSecondary, marginBottom: spacing.sm },
+  input: { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.lg - 2, fontSize: fontSize.base + 1, color: colors.text, marginBottom: spacing.xs },
+  inputError: { borderColor: colors.error },
+  errorText: { fontSize: fontSize.xs + 1, color: colors.error, marginBottom: spacing.sm, marginLeft: spacing.xs },
+  button: { backgroundColor: colors.primary, padding: spacing.lg, borderRadius: radius.md, alignItems: 'center', marginTop: spacing.lg },
+  buttonText: { color: colors.textInverse, fontSize: fontSize.base + 1, fontWeight: fontWeight.semibold },
+  linkBtn: { marginTop: spacing.xl, alignItems: 'center' },
+  linkText: { fontSize: fontSize.sm + 1, color: colors.slate500 },
+  linkHighlight: { color: colors.primary, fontWeight: fontWeight.semibold },
 });

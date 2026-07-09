@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { colors, spacing, radius, fontSize, fontWeight } from '../../theme/tokens';
 
 interface StatCard {
   label: string;
@@ -15,9 +16,9 @@ interface StatCardRowProps {
 
 export default function StatCardRow({ cards, columns = 3 }: StatCardRowProps) {
   return (
-    <View style={[styles.row, { flexDirection: 'row' as const }]}>
+    <View style={styles.row}>
       {cards.map((card, i) => (
-        <View key={i} style={[styles.card, { flex: 1 / columns }]}>
+        <View key={i} style={[styles.card, { flex: 1 / columns }]} accessibilityLabel={`${card.label}: ${card.value}`}>
           {card.icon ? <Text style={styles.icon}>{card.icon}</Text> : null}
           <Text style={[styles.value, card.color ? { color: card.color } : undefined]}>
             {card.value}
@@ -30,9 +31,9 @@ export default function StatCardRow({ cards, columns = 3 }: StatCardRowProps) {
 }
 
 const styles = StyleSheet.create({
-  row: { gap: 8, padding: 16 },
-  card: { backgroundColor: '#fff', borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: '#f1f5f9' },
-  icon: { fontSize: 20, marginBottom: 4 },
-  value: { fontSize: 18, fontWeight: '700', color: '#0f172a' },
-  label: { fontSize: 11, color: '#64748b', marginTop: 2, textAlign: 'center' },
+  row: { flexDirection: 'row', gap: spacing.sm, padding: spacing.lg },
+  card: { backgroundColor: colors.card, borderRadius: radius.md, padding: spacing.md + 2, alignItems: 'center', borderWidth: 1, borderColor: colors.tagBg },
+  icon: { fontSize: fontSize.xl, marginBottom: spacing.xs },
+  value: { fontSize: fontSize.lg + 1, fontWeight: fontWeight.bold, color: colors.text },
+  label: { fontSize: fontSize.xs, color: colors.slate500, marginTop: 2, textAlign: 'center' },
 });

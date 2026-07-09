@@ -1,6 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.user import User
+from app.models.login_record import LoginRecord
 from app.models.category import Category
 from app.models.alert import AlertPreference
 from app.models.account import Account
@@ -52,6 +53,8 @@ class AuthService:
 
         await self._seed_default_categories(user.id)
         await self._seed_default_account(user.id)
+        self.db.add(LoginRecord(user_id=user.id))
+        await self.db.flush()
         return {
             "access_token": create_access_token(user.id),
             "refresh_token": create_refresh_token(user.id),
@@ -75,6 +78,8 @@ class AuthService:
         user = result.scalar_one_or_none()
         if not user or not verify_password(data.password, user.password_hash):
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+        self.db.add(LoginRecord(user_id=user.id))
+        await self.db.flush()
         return {
             "access_token": create_access_token(user.id),
             "refresh_token": create_refresh_token(user.id),

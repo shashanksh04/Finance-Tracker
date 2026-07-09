@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TextInput, StyleSheet } from 'react-native';
+import { colors, spacing, radius, fontSize, fontWeight } from '../../theme/tokens';
 
 interface FormFieldProps {
   label: string;
@@ -28,13 +29,14 @@ export default function FormField({
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor="#94a3b8"
+        placeholderTextColor={colors.textTertiary}
         secureTextEntry={secureTextEntry}
         keyboardType={keyboardType}
         multiline={multiline}
         editable={editable}
         maxLength={maxLength}
         autoCapitalize={autoCapitalize}
+        accessibilityLabel={label}
       />
       {error ? <Text style={styles.error}>{error}</Text> : null}
     </View>
@@ -42,10 +44,10 @@ export default function FormField({
 }
 
 const styles = StyleSheet.create({
-  container: { marginBottom: 14 },
-  label: { fontSize: 13, fontWeight: '600', color: '#475569', marginBottom: 6 },
-  input: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 10, padding: 14, fontSize: 15, color: '#0f172a' },
+  container: { marginBottom: spacing.md + 2 },
+  label: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textSecondary, marginBottom: spacing.sm },
+  input: { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.md + 2, fontSize: fontSize.base, color: colors.text },
   multiline: { minHeight: 80, textAlignVertical: 'top' },
-  disabled: { backgroundColor: '#f1f5f9', color: '#94a3b8' },
-  error: { fontSize: 12, color: '#dc2626', marginTop: 4 },
+  disabled: { backgroundColor: colors.tagBg, color: colors.textTertiary },
+  error: { fontSize: fontSize.xs + 1, color: colors.error, marginTop: spacing.xs },
 });
