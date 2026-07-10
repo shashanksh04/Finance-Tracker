@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { adminApi } from '../services/api';
 import { AdminStats } from '../types';
-import { PageHeader } from '../components/PageHeader';
+import { PageHeader } from '../components/ui/PageHeader';
 import { Users, LogIn, Calendar } from 'lucide-react';
 
 export function AdminPage() {
