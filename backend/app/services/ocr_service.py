@@ -1,4 +1,4 @@
-import os, re, asyncio, threading, time, json
+import os, re, asyncio, threading, time, json, traceback
 from typing import Optional
 from datetime import datetime
 from PIL import Image
@@ -7,6 +7,7 @@ from app.core.config import settings
 
 class OCRService:
     _ocr = None
+    _ocr_easy = None
     _lock = threading.Lock()
     _warm = False
 
@@ -32,8 +33,22 @@ class OCRService:
                             det_db_box_thresh=0.5,
                         )
                     except Exception:
+                        traceback.print_exc()
                         cls._ocr = None
         return cls._ocr
+
+    @classmethod
+    def _get_ocr_easy(cls):
+        if cls._ocr_easy is None:
+            with cls._lock:
+                if cls._ocr_easy is None:
+                    try:
+                        import easyocr
+                        cls._ocr_easy = easyocr.Reader(["en"], gpu=False)
+                    except Exception:
+                        traceback.print_exc()
+                        cls._ocr_easy = None
+        return cls._ocr_easy
 
     @classmethod
     def _preprocess_image(cls, file_path: str) -> str:
@@ -108,21 +123,33 @@ class OCRService:
 
     @classmethod
     def _extract_image(cls, file_path: str) -> str:
-        ocr = cls._get_ocr()
-        if ocr:
-            pre_path = cls._preprocess_image(file_path)
-            try:
-                result = ocr.ocr(pre_path, cls=False)
-                text = " ".join(item[1][0] for line in result for item in line)
+        pre_path = cls._preprocess_image(file_path)
+        try:
+            ocr = cls._get_ocr()
+            if ocr:
+                try:
+                    result = ocr.ocr(pre_path, cls=False)
+                    text = " ".join(item[1][0] for line in result for item in line)
+                    if text.strip():
+                        return text.strip()
+                except Exception:
+                    traceback.print_exc()
+        except Exception:
+            traceback.print_exc()
+        try:
+            easy = cls._get_ocr_easy()
+            if easy:
+                result = easy.readtext(pre_path)
+                text = " ".join(item[1] for item in result)
                 return text.strip()
-            except Exception:
-                return ""
-            finally:
-                if pre_path != file_path:
-                    try:
-                        os.remove(pre_path)
-                    except OSError:
-                        pass
+        except Exception:
+            traceback.print_exc()
+        finally:
+            if pre_path != file_path:
+                try:
+                    os.remove(pre_path)
+                except OSError:
+                    pass
         return ""
 
     @classmethod
