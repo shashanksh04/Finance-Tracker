@@ -1,14 +1,67 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, RefreshControl } from 'react-native';
-import { colors, spacing, radius, fontSize, fontWeight, shadow } from '../theme/tokens';
+import { spacing, radius, fontSize, fontWeight, shadow } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
 import { useOfflineItem } from '../hooks/useOfflineData';
 import { useHaptics } from '../hooks/useHaptics';
 import { CardSkeleton } from '../components/ui/SkeletonLoader';
 
 export default function StreaksScreen() {
+  const { colors } = useTheme();
   const { light: hapticLight } = useHaptics();
   const { data: summary, loading, refresh } = useOfflineItem('dashboard_summary', 'current');
   const [refreshing, setRefreshing] = useState(false);
+  const styles = useMemo(() => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
+  content: { padding: spacing.md, alignItems: 'center', paddingBottom: 40 },
+  headerCard: {
+    backgroundColor: colors.card,
+    borderRadius: radius.xl,
+    padding: spacing.xl,
+    alignItems: 'center',
+    width: '100%',
+    ...shadow.md,
+  },
+  flame: { fontSize: 56, marginBottom: spacing.xs },
+  streakCount: { fontSize: fontSize.xxxxl, fontWeight: fontWeight.bold, color: colors.text },
+  streakLabel: { fontSize: fontSize.md, color: colors.textSecondary, marginTop: spacing.xs },
+  weekRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg, justifyContent: 'center' },
+  weekDay: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.tagBg,
+  },
+  weekDayActive: { backgroundColor: colors.primary },
+  weekDayToday: { borderWidth: 2, borderColor: colors.primary },
+  weekDayText: { fontSize: fontSize.xs, color: colors.textSecondary, fontWeight: fontWeight.medium },
+  weekDayTextActive: { color: '#fff' },
+  statsRow: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.lg, width: '100%' },
+  statCard: {
+    flex: 1,
+    backgroundColor: colors.card,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    alignItems: 'center',
+    ...shadow.sm,
+  },
+  statValue: { fontSize: fontSize.xxl, fontWeight: fontWeight.bold, color: colors.text },
+  statLabel: { fontSize: fontSize.sm, color: colors.textSecondary, marginTop: spacing.xs },
+  lastActive: { fontSize: fontSize.sm, color: colors.textSecondary, marginTop: spacing.md },
+  tipCard: {
+    backgroundColor: colors.primaryLight + '20',
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginTop: spacing.lg,
+    width: '100%',
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primary,
+  },
+  tipTitle: { fontSize: fontSize.md, fontWeight: fontWeight.semibold, color: colors.primary, marginBottom: spacing.xs },
+  tipText: { fontSize: fontSize.sm, color: colors.textSecondary, lineHeight: 20 },
+}), [colors, spacing, radius, fontSize, fontWeight]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -71,55 +124,3 @@ export default function StreaksScreen() {
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.md, alignItems: 'center', paddingBottom: 40 },
-  headerCard: {
-    backgroundColor: colors.card,
-    borderRadius: radius.xl,
-    padding: spacing.xl,
-    alignItems: 'center',
-    width: '100%',
-    ...shadow.md,
-  },
-  flame: { fontSize: 56, marginBottom: spacing.xs },
-  streakCount: { fontSize: fontSize.xxxxl, fontWeight: fontWeight.bold, color: colors.text },
-  streakLabel: { fontSize: fontSize.md, color: colors.textSecondary, marginTop: spacing.xs },
-  weekRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg, justifyContent: 'center' },
-  weekDay: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.tagBg,
-  },
-  weekDayActive: { backgroundColor: colors.primary },
-  weekDayToday: { borderWidth: 2, borderColor: colors.primary },
-  weekDayText: { fontSize: fontSize.xs, color: colors.textSecondary, fontWeight: fontWeight.medium },
-  weekDayTextActive: { color: '#fff' },
-  statsRow: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.lg, width: '100%' },
-  statCard: {
-    flex: 1,
-    backgroundColor: colors.card,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    alignItems: 'center',
-    ...shadow.sm,
-  },
-  statValue: { fontSize: fontSize.xxl, fontWeight: fontWeight.bold, color: colors.text },
-  statLabel: { fontSize: fontSize.sm, color: colors.textSecondary, marginTop: spacing.xs },
-  lastActive: { fontSize: fontSize.sm, color: colors.textSecondary, marginTop: spacing.md },
-  tipCard: {
-    backgroundColor: colors.primaryLight + '20',
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    marginTop: spacing.lg,
-    width: '100%',
-    borderLeftWidth: 3,
-    borderLeftColor: colors.primary,
-  },
-  tipTitle: { fontSize: fontSize.md, fontWeight: fontWeight.semibold, color: colors.primary, marginBottom: spacing.xs },
-  tipText: { fontSize: fontSize.sm, color: colors.textSecondary, lineHeight: 20 },
-});

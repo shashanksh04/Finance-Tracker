@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal as RNModal, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
-import { colors, spacing, radius, fontSize, fontWeight } from '../../theme/tokens';
+import { spacing, radius, fontSize, fontWeight } from '../../theme/tokens';
+import { useTheme } from '../../theme/ThemeContext';
 
 interface ModalProps {
   visible: boolean;
@@ -10,6 +11,16 @@ interface ModalProps {
 }
 
 export default function Modal({ visible, onClose, title, children }: ModalProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => StyleSheet.create({
+  overlay: { flex: 1, justifyContent: 'flex-end' },
+  backdrop: { flex: 1, backgroundColor: colors.overlay },
+  sheet: { backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, maxHeight: '85%', paddingBottom: spacing.xxxl },
+  handle: { width: 36, height: 4, backgroundColor: colors.border, borderRadius: 2, alignSelf: 'center', marginTop: spacing.sm + 2, marginBottom: spacing.xs },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: spacing.lg, paddingBottom: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.tagBg },
+  title: { fontSize: fontSize.lg + 1, fontWeight: fontWeight.bold, color: colors.text },
+  closeBtn: { fontSize: fontSize.xl, color: colors.textTertiary, padding: spacing.xs },
+}), [colors, spacing, radius, fontSize, fontWeight]);
   return (
     <RNModal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.overlay}>
@@ -33,12 +44,4 @@ export default function Modal({ visible, onClose, title, children }: ModalProps)
   );
 }
 
-const styles = StyleSheet.create({
-  overlay: { flex: 1, justifyContent: 'flex-end' },
-  backdrop: { flex: 1, backgroundColor: colors.overlay },
-  sheet: { backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, maxHeight: '85%', paddingBottom: spacing.xxxl },
-  handle: { width: 36, height: 4, backgroundColor: colors.border, borderRadius: 2, alignSelf: 'center', marginTop: spacing.sm + 2, marginBottom: spacing.xs },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: spacing.lg, paddingBottom: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.tagBg },
-  title: { fontSize: fontSize.lg + 1, fontWeight: fontWeight.bold, color: colors.text },
-  closeBtn: { fontSize: fontSize.xl, color: colors.textTertiary, padding: spacing.xs },
-});
+

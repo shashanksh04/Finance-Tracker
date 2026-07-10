@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   RefreshControl, ActivityIndicator, TextInput, Animated,
@@ -16,12 +16,18 @@ import { formatCurrency, formatTransactionAmount, isIncome } from '../utils/form
 import type { Account, DashboardSummary, Transaction } from '../types';
 import { useAuthStore } from '../stores/authStore';
 import { useNavigation } from '@react-navigation/native';
-import { shareText, formatSummaryShare } from '../services/share';
-import { colors, spacing, radius, fontSize, fontWeight, shadow } from '../theme/tokens';
+
+import { spacing, radius, fontSize, fontWeight, shadow } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
 
 function AnimatedNumber({ value, duration = 600 }: { value: number; duration?: number }) {
+  const { colors } = useTheme();
   const animated = useRef(new Animated.Value(0)).current;
   const [display, setDisplay] = useState('0');
+
+  const aidStyles = useMemo(() => ({
+    balanceValue: { fontSize: fontSize.hero, fontWeight: fontWeight.bold, color: colors.text, marginTop: spacing.xs },
+  }), [colors]);
 
   useEffect(() => {
     animated.setValue(0);
@@ -32,7 +38,7 @@ function AnimatedNumber({ value, duration = 600 }: { value: number; duration?: n
     return () => animated.removeListener(listener);
   }, [value]);
 
-  return <Text style={styles.balanceValue}>{display}</Text>;
+  return <Text style={aidStyles.balanceValue}>{display}</Text>;
 }
 
 function formatCategoryData(dashboard: DashboardSummary | null) {
@@ -45,6 +51,7 @@ function formatCategoryData(dashboard: DashboardSummary | null) {
 }
 
 export default function DashboardScreen() {
+  const { colors } = useTheme();
   const { light: hapticLight, success: hapticSuccess, heavy: hapticHeavy } = useHaptics();
   const logout = useAuthStore((s) => s.logout);
   const navigation = useNavigation();
@@ -101,6 +108,66 @@ export default function DashboardScreen() {
   const totalBalance = accounts.reduce((s, a) => s + a.balance, 0);
   const catData = formatCategoryData(dashboard);
 
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    greetingCard: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      padding: spacing.xl, backgroundColor: colors.primary,
+    },
+    greeting: { fontSize: fontSize.xxl, fontWeight: fontWeight.bold, color: colors.textInverse },
+    subGreeting: { fontSize: fontSize.sm, color: '#bfdbfe', marginTop: spacing.xs },
+    greetingActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+    offlineBadge: { backgroundColor: colors.warningLight, paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.full },
+    offlineText: { fontSize: fontSize.xs, fontWeight: fontWeight.semibold, color: colors.warning },
+    logoutBtn: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.full, backgroundColor: 'rgba(255,255,255,0.2)' },
+    logoutIcon: { fontSize: 14 },
+    logoutLabel: { fontSize: fontSize.xs, fontWeight: fontWeight.semibold, color: colors.textInverse },
+    balanceCard: {
+      backgroundColor: colors.card, margin: spacing.md, padding: spacing.xl,
+      borderRadius: radius.lg, alignItems: 'center', ...shadow.md,
+    },
+    balanceLabel: { fontSize: fontSize.sm, color: colors.textTertiary, fontWeight: fontWeight.medium },
+    balanceValue: { fontSize: fontSize.hero, fontWeight: fontWeight.bold, color: colors.text, marginTop: spacing.xs },
+    balanceMeta: { flexDirection: 'row', gap: spacing.lg, marginTop: spacing.md },
+    balanceMetaItem: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+    dot: { width: 8, height: 8, borderRadius: 4 },
+    balanceMetaText: { fontSize: fontSize.xs, color: colors.textSecondary },
+    section: { padding: spacing.md, paddingBottom: 0 },
+    sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md },
+    sectionTitle: { fontSize: fontSize.base, fontWeight: fontWeight.bold, color: colors.text, textTransform: 'uppercase', letterSpacing: 0.5 },
+    seeAll: { fontSize: fontSize.sm, color: colors.primary, fontWeight: fontWeight.semibold },
+    statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+    statCard: {
+      width: '48%', padding: spacing.md, borderRadius: radius.md,
+    },
+    statLabel: { fontSize: fontSize.xs, color: colors.textTertiary, fontWeight: fontWeight.medium, textTransform: 'uppercase', letterSpacing: 0.5 },
+    statValue: { fontSize: fontSize.xl, fontWeight: fontWeight.bold, marginTop: spacing.xs },
+    chartCard: { backgroundColor: colors.card, borderRadius: radius.md, padding: spacing.md, ...shadow.sm },
+    trxRow: {
+      flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card,
+      padding: spacing.lg, borderRadius: radius.md, marginBottom: spacing.sm, gap: spacing.md, ...shadow.sm,
+    },
+    trxIcon: { width: 40, height: 40, borderRadius: radius.xl, justifyContent: 'center', alignItems: 'center' },
+    trxIconText: { fontSize: 18 },
+    trxInfo: { flex: 1 },
+    trxDesc: { fontSize: fontSize.base, fontWeight: fontWeight.medium, color: colors.text },
+    trxDate: { fontSize: fontSize.xs, color: colors.textTertiary, marginTop: 2 },
+    trxAmount: { fontSize: fontSize.lg, fontWeight: fontWeight.bold },
+    emptyState: { alignItems: 'center', padding: spacing.xxxl },
+    emptyIcon: { fontSize: 48, marginBottom: spacing.md },
+    emptyTitle: { fontSize: fontSize.lg, fontWeight: fontWeight.semibold, color: colors.text },
+    emptySubtitle: { fontSize: fontSize.sm, color: colors.textTertiary, marginTop: spacing.xs },
+    fab: { position: 'absolute', bottom: 20, right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', elevation: 4 },
+    fabText: { fontSize: 28, color: colors.textInverse, fontWeight: fontWeight.regular, marginTop: -2 },
+    form: { padding: spacing.xl },
+    label: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textSecondary, marginBottom: spacing.sm, marginTop: spacing.xs },
+    input: { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: spacing.md, fontSize: fontSize.base, color: colors.text, marginBottom: spacing.sm },
+    choiceChip: { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, marginRight: spacing.sm, marginBottom: spacing.sm },
+    choiceChipText: { fontSize: fontSize.sm, color: colors.textSecondary },
+    saveBtn: { backgroundColor: colors.primary, padding: spacing.lg, borderRadius: radius.md, alignItems: 'center', marginTop: spacing.md },
+    saveBtnText: { color: colors.textInverse, fontSize: fontSize.base, fontWeight: fontWeight.semibold },
+  }), [colors, spacing, radius, fontSize, fontWeight]);
+
   if (loading) return <DashboardSkeleton />;
 
   return (
@@ -113,11 +180,9 @@ export default function DashboardScreen() {
           </View>
           <View style={styles.greetingActions}>
             {isOffline && <View style={styles.offlineBadge}><Text style={styles.offlineText}>Offline</Text></View>}
-            <TouchableOpacity style={styles.logoutBtn} onPress={() => { hapticLight(); shareText(formatSummaryShare(totalBalance, dashboard?.monthly_income || 0, dashboard?.monthly_expenses || 0)); }} accessibilityLabel="Share summary" accessibilityRole="button">
-              <Text style={styles.logoutIcon}>📤</Text>
-            </TouchableOpacity>
             <TouchableOpacity style={styles.logoutBtn} onPress={() => { hapticHeavy(); logout(); }} accessibilityLabel="Sign out" accessibilityRole="button">
               <Text style={styles.logoutIcon}>🚪</Text>
+              <Text style={styles.logoutLabel}>Logout</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -231,61 +296,3 @@ export default function DashboardScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  greetingCard: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    padding: spacing.xl, backgroundColor: colors.primary,
-  },
-  greeting: { fontSize: fontSize.xxl, fontWeight: fontWeight.bold, color: colors.textInverse },
-  subGreeting: { fontSize: fontSize.sm, color: '#bfdbfe', marginTop: spacing.xs },
-  greetingActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  offlineBadge: { backgroundColor: colors.warningLight, paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.full },
-  offlineText: { fontSize: fontSize.xs, fontWeight: fontWeight.semibold, color: colors.warning },
-  logoutBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' },
-  logoutIcon: { fontSize: 16 },
-  balanceCard: {
-    backgroundColor: colors.card, margin: spacing.md, padding: spacing.xl,
-    borderRadius: radius.lg, alignItems: 'center', ...shadow.md,
-  },
-  balanceLabel: { fontSize: fontSize.sm, color: colors.textTertiary, fontWeight: fontWeight.medium },
-  balanceValue: { fontSize: fontSize.hero, fontWeight: fontWeight.bold, color: colors.text, marginTop: spacing.xs },
-  balanceMeta: { flexDirection: 'row', gap: spacing.lg, marginTop: spacing.md },
-  balanceMetaItem: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  dot: { width: 8, height: 8, borderRadius: 4 },
-  balanceMetaText: { fontSize: fontSize.xs, color: colors.textSecondary },
-  section: { padding: spacing.md, paddingBottom: 0 },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md },
-  sectionTitle: { fontSize: fontSize.base, fontWeight: fontWeight.bold, color: colors.text, textTransform: 'uppercase', letterSpacing: 0.5 },
-  seeAll: { fontSize: fontSize.sm, color: colors.primary, fontWeight: fontWeight.semibold },
-  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  statCard: {
-    width: '48%', padding: spacing.md, borderRadius: radius.md,
-  },
-  statLabel: { fontSize: fontSize.xs, color: colors.textTertiary, fontWeight: fontWeight.medium, textTransform: 'uppercase', letterSpacing: 0.5 },
-  statValue: { fontSize: fontSize.xl, fontWeight: fontWeight.bold, marginTop: spacing.xs },
-  chartCard: { backgroundColor: colors.card, borderRadius: radius.md, padding: spacing.md, ...shadow.sm },
-  trxRow: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card,
-    padding: spacing.lg, borderRadius: radius.md, marginBottom: spacing.sm, gap: spacing.md, ...shadow.sm,
-  },
-  trxIcon: { width: 40, height: 40, borderRadius: radius.xl, justifyContent: 'center', alignItems: 'center' },
-  trxIconText: { fontSize: 18 },
-  trxInfo: { flex: 1 },
-  trxDesc: { fontSize: fontSize.base, fontWeight: fontWeight.medium, color: colors.text },
-  trxDate: { fontSize: fontSize.xs, color: colors.textTertiary, marginTop: 2 },
-  trxAmount: { fontSize: fontSize.lg, fontWeight: fontWeight.bold },
-  emptyState: { alignItems: 'center', padding: spacing.xxxl },
-  emptyIcon: { fontSize: 48, marginBottom: spacing.md },
-  emptyTitle: { fontSize: fontSize.lg, fontWeight: fontWeight.semibold, color: colors.text },
-  emptySubtitle: { fontSize: fontSize.sm, color: colors.textTertiary, marginTop: spacing.xs },
-  fab: { position: 'absolute', bottom: 20, right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', elevation: 4 },
-  fabText: { fontSize: 28, color: colors.textInverse, fontWeight: fontWeight.regular, marginTop: -2 },
-  form: { padding: spacing.xl },
-  label: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textSecondary, marginBottom: spacing.sm, marginTop: spacing.xs },
-  input: { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: spacing.md, fontSize: fontSize.base, color: colors.text, marginBottom: spacing.sm },
-  choiceChip: { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, marginRight: spacing.sm, marginBottom: spacing.sm },
-  choiceChipText: { fontSize: fontSize.sm, color: colors.textSecondary },
-  saveBtn: { backgroundColor: colors.primary, padding: spacing.lg, borderRadius: radius.md, alignItems: 'center', marginTop: spacing.md },
-  saveBtnText: { color: colors.textInverse, fontSize: fontSize.base, fontWeight: fontWeight.semibold },
-});

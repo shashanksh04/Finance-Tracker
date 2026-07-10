@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, RefreshControl } from 'react-native';
-import { colors, spacing, radius, fontSize, fontWeight, shadow } from '../theme/tokens';
+import { spacing, radius, fontSize, fontWeight, shadow } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
 import { useOfflineList } from '../hooks/useOfflineData';
 import { useHaptics } from '../hooks/useHaptics';
 import { repository } from '../database/repository';
@@ -10,9 +11,36 @@ import { CardSkeleton } from '../components/ui/SkeletonLoader';
 import type { Bill } from '../types';
 
 export default function CalendarSyncScreen() {
+  const { colors } = useTheme();
   const { success: hapticSuccess, light: hapticLight } = useHaptics();
   const { data: bills, loading, refreshing, refreshFromApi } = useOfflineList<Bill>(TABLES.BILLS);
   const [syncing, setSyncing] = useState(false);
+  const styles = useMemo(() => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
+  content: { padding: spacing.md, paddingBottom: 40 },
+  infoCard: {
+    backgroundColor: colors.card,
+    borderRadius: radius.xl,
+    padding: spacing.xl,
+    alignItems: 'center',
+    ...shadow.md,
+    marginBottom: spacing.lg,
+  },
+  infoIcon: { fontSize: 48, marginBottom: spacing.md },
+  infoTitle: { fontSize: fontSize.lg, fontWeight: fontWeight.bold, color: colors.text, marginBottom: spacing.sm },
+  infoText: { fontSize: fontSize.sm, color: colors.textSecondary, textAlign: 'center', lineHeight: 20 },
+  billsSection: { marginBottom: spacing.md },
+  sectionTitle: { fontSize: fontSize.md, fontWeight: fontWeight.semibold, color: colors.text, marginBottom: spacing.sm },
+  emptyText: { fontSize: fontSize.sm, color: colors.textSecondary, textAlign: 'center', padding: spacing.lg },
+  syncBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    padding: spacing.lg,
+    alignItems: 'center',
+    marginTop: spacing.md,
+  },
+  syncBtnText: { fontSize: fontSize.base, fontWeight: fontWeight.semibold, color: '#fff' },
+}), [colors, spacing, radius, fontSize, fontWeight]);
 
   if (loading) return <CardSkeleton />;
 
@@ -72,30 +100,3 @@ export default function CalendarSyncScreen() {
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.md, paddingBottom: 40 },
-  infoCard: {
-    backgroundColor: colors.card,
-    borderRadius: radius.xl,
-    padding: spacing.xl,
-    alignItems: 'center',
-    ...shadow.md,
-    marginBottom: spacing.lg,
-  },
-  infoIcon: { fontSize: 48, marginBottom: spacing.md },
-  infoTitle: { fontSize: fontSize.lg, fontWeight: fontWeight.bold, color: colors.text, marginBottom: spacing.sm },
-  infoText: { fontSize: fontSize.sm, color: colors.textSecondary, textAlign: 'center', lineHeight: 20 },
-  billsSection: { marginBottom: spacing.md },
-  sectionTitle: { fontSize: fontSize.md, fontWeight: fontWeight.semibold, color: colors.text, marginBottom: spacing.sm },
-  emptyText: { fontSize: fontSize.sm, color: colors.textSecondary, textAlign: 'center', padding: spacing.lg },
-  syncBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    padding: spacing.lg,
-    alignItems: 'center',
-    marginTop: spacing.md,
-  },
-  syncBtnText: { fontSize: fontSize.base, fontWeight: fontWeight.semibold, color: '#fff' },
-});

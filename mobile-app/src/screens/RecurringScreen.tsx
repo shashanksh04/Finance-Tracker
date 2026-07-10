@@ -12,9 +12,11 @@ import { ListSkeleton } from '../components/ui/SkeletonLoader';
 import Modal from '../components/ui/Modal';
 import { formatCurrency, formatTransactionAmount, isIncome } from '../utils/format';
 import type { RecurringTransaction, Account, Category } from '../types';
-import { colors, spacing, radius, fontSize, fontWeight, shadow } from '../theme/tokens';
+import { spacing, radius, fontSize, fontWeight, shadow } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
 
 export default function RecurringScreen() {
+  const { colors } = useTheme();
   const { success: hapticSuccess, light: hapticLight, heavy: hapticHeavy } = useHaptics();
   const { data: recurring, loading, refreshing, refresh, refreshFromApi } = useOfflineList<RecurringTransaction>(TABLES.RECURRING, {
     orderBy: 'next_date ASC',
@@ -78,6 +80,42 @@ export default function RecurringScreen() {
       { text: 'Delete', style: 'destructive', onPress: async () => { await recurringApi.delete(id); await repository.delete(TABLES.RECURRING, id); hapticHeavy(); refresh(); } },
     ]);
   };
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    card: { backgroundColor: colors.card, margin: spacing.md, marginBottom: 0, padding: spacing.lg, borderRadius: radius.md, ...shadow.sm },
+    cardRow: { flexDirection: 'row', justifyContent: 'space-between' },
+    cardLeft: { flex: 1 },
+    cardDesc: { fontSize: fontSize.base, fontWeight: fontWeight.semibold, color: colors.text },
+    cardMeta: { fontSize: fontSize.xs, color: colors.textTertiary, marginTop: 2 },
+    cardNext: { fontSize: fontSize.xs, color: colors.textSecondary, marginTop: 2 },
+    cardRight: { alignItems: 'flex-end', gap: spacing.sm },
+    cardAmount: { fontSize: fontSize.lg, fontWeight: fontWeight.bold },
+    emptyState: { alignItems: 'center', padding: spacing.xxxl, paddingTop: 80 },
+    emptyIcon: { fontSize: 48, marginBottom: spacing.md },
+    emptyTitle: { fontSize: fontSize.lg, fontWeight: fontWeight.semibold, color: colors.text },
+    emptySubtitle: { fontSize: fontSize.sm, color: colors.textTertiary, marginTop: spacing.xs },
+    emptyAction: { marginTop: spacing.xl, backgroundColor: colors.primary, paddingHorizontal: spacing.xxl, paddingVertical: spacing.md, borderRadius: radius.md },
+    emptyActionText: { color: colors.textInverse, fontSize: fontSize.base, fontWeight: fontWeight.semibold },
+    fab: { position: 'absolute', bottom: 20, right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', elevation: 4 },
+    fabText: { fontSize: 28, color: colors.textInverse, fontWeight: fontWeight.regular, marginTop: -2 },
+    form: { padding: spacing.xl, maxHeight: 500 },
+    label: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textSecondary, marginBottom: spacing.sm, marginTop: spacing.xs },
+    input: { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: spacing.md, fontSize: fontSize.base, color: colors.text, marginBottom: spacing.sm },
+    typeRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
+    typeBtn: { flex: 1, padding: spacing.sm, borderRadius: radius.sm, alignItems: 'center', backgroundColor: colors.border },
+    typeBtnText: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold },
+    freqRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
+    freqBtn: { flex: 1, padding: spacing.sm, borderRadius: radius.sm, alignItems: 'center', backgroundColor: colors.border, borderWidth: 1, borderColor: colors.border },
+    freqBtnText: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textSecondary },
+    choiceChip: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, marginRight: spacing.sm, marginBottom: spacing.sm },
+    choiceChipText: { fontSize: fontSize.sm, color: colors.textSecondary },
+    formActions: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.lg },
+    saveBtn: { flex: 1, backgroundColor: colors.primary, padding: spacing.lg, borderRadius: radius.md, alignItems: 'center' },
+    saveBtnText: { color: colors.textInverse, fontSize: fontSize.base, fontWeight: fontWeight.semibold },
+    deleteBtn: { padding: spacing.lg, borderRadius: radius.md, borderWidth: 1, borderColor: colors.dangerLight },
+    deleteBtnText: { color: colors.danger, fontWeight: fontWeight.semibold },
+  }), [colors, spacing, radius, fontSize, fontWeight]);
 
   if (loading) return <ListSkeleton />;
 
@@ -172,38 +210,3 @@ export default function RecurringScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  card: { backgroundColor: colors.card, margin: spacing.md, marginBottom: 0, padding: spacing.lg, borderRadius: radius.md, ...shadow.sm },
-  cardRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  cardLeft: { flex: 1 },
-  cardDesc: { fontSize: fontSize.base, fontWeight: fontWeight.semibold, color: colors.text },
-  cardMeta: { fontSize: fontSize.xs, color: colors.textTertiary, marginTop: 2 },
-  cardNext: { fontSize: fontSize.xs, color: colors.textSecondary, marginTop: 2 },
-  cardRight: { alignItems: 'flex-end', gap: spacing.sm },
-  cardAmount: { fontSize: fontSize.lg, fontWeight: fontWeight.bold },
-  emptyState: { alignItems: 'center', padding: spacing.xxxl, paddingTop: 80 },
-  emptyIcon: { fontSize: 48, marginBottom: spacing.md },
-  emptyTitle: { fontSize: fontSize.lg, fontWeight: fontWeight.semibold, color: colors.text },
-  emptySubtitle: { fontSize: fontSize.sm, color: colors.textTertiary, marginTop: spacing.xs },
-  emptyAction: { marginTop: spacing.xl, backgroundColor: colors.primary, paddingHorizontal: spacing.xxl, paddingVertical: spacing.md, borderRadius: radius.md },
-  emptyActionText: { color: colors.textInverse, fontSize: fontSize.base, fontWeight: fontWeight.semibold },
-  fab: { position: 'absolute', bottom: 20, right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', elevation: 4 },
-  fabText: { fontSize: 28, color: colors.textInverse, fontWeight: fontWeight.regular, marginTop: -2 },
-  form: { padding: spacing.xl, maxHeight: 500 },
-  label: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textSecondary, marginBottom: spacing.sm, marginTop: spacing.xs },
-  input: { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: spacing.md, fontSize: fontSize.base, color: colors.text, marginBottom: spacing.sm },
-  typeRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
-  typeBtn: { flex: 1, padding: spacing.sm, borderRadius: radius.sm, alignItems: 'center', backgroundColor: colors.border },
-  typeBtnText: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold },
-  freqRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
-  freqBtn: { flex: 1, padding: spacing.sm, borderRadius: radius.sm, alignItems: 'center', backgroundColor: colors.border, borderWidth: 1, borderColor: colors.border },
-  freqBtnText: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textSecondary },
-  choiceChip: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, marginRight: spacing.sm, marginBottom: spacing.sm },
-  choiceChipText: { fontSize: fontSize.sm, color: colors.textSecondary },
-  formActions: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.lg },
-  saveBtn: { flex: 1, backgroundColor: colors.primary, padding: spacing.lg, borderRadius: radius.md, alignItems: 'center' },
-  saveBtnText: { color: colors.textInverse, fontSize: fontSize.base, fontWeight: fontWeight.semibold },
-  deleteBtn: { padding: spacing.lg, borderRadius: radius.md, borderWidth: 1, borderColor: colors.dangerLight },
-  deleteBtnText: { color: colors.danger, fontWeight: fontWeight.semibold },
-});

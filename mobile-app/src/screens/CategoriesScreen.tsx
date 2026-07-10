@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, TextInput, Alert } from 'react-native';
 import { categoriesApi } from '../services/api';
 import { useHaptics } from '../hooks/useHaptics';
@@ -9,11 +9,13 @@ import { ListSkeleton } from '../components/ui/SkeletonLoader';
 import Modal from '../components/ui/Modal';
 import EmptyState from '../components/ui/EmptyState';
 import type { Category, CategoryType } from '../types';
-import { colors, spacing, radius, fontSize, fontWeight, shadow } from '../theme/tokens';
+import { spacing, radius, fontSize, fontWeight, shadow } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
 
 const COLORS = ['#0284c7', '#10b981', '#ef4444', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#6366f1', '#84cc16'];
 
 export default function CategoriesScreen() {
+  const { colors } = useTheme();
   const { success: hapticSuccess, heavy: hapticHeavy } = useHaptics();
   const [filter, setFilter] = useState<CategoryType | 'all'>('all');
   const where = filter === 'all' ? undefined : [{ field: 'type', value: filter }];
@@ -48,6 +50,34 @@ export default function CategoriesScreen() {
       { text: 'Delete', style: 'destructive', onPress: async () => { await categoriesApi.delete(id); await repository.delete(TABLES.CATEGORIES, id); hapticHeavy(); refresh(); } },
     ]);
   };
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    filterRow: { flexDirection: 'row', padding: spacing.md, gap: spacing.sm },
+    filterBtn: { flex: 1, padding: spacing.sm, borderRadius: radius.sm, alignItems: 'center', backgroundColor: colors.border },
+    filterBtnText: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textSecondary },
+    grid: { flexDirection: 'row', flexWrap: 'wrap', padding: spacing.md, gap: spacing.sm },
+    card: { width: '30%', flexGrow: 1, backgroundColor: colors.card, padding: spacing.md, borderRadius: radius.md, borderLeftWidth: 3, alignItems: 'center', minWidth: 100, ...shadow.sm },
+    cardIcon: { fontSize: 28, marginBottom: spacing.xs },
+    cardName: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.text, textAlign: 'center' },
+    cardType: { fontSize: fontSize.xs, color: colors.textTertiary, marginTop: 2, textTransform: 'capitalize' },
+    fab: { position: 'absolute', bottom: 20, right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', elevation: 4 },
+    fabText: { fontSize: 28, color: colors.textInverse, fontWeight: fontWeight.regular, marginTop: -2 },
+    form: { padding: spacing.xl },
+    label: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textSecondary, marginBottom: spacing.sm, marginTop: spacing.xs },
+    input: { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: spacing.md, fontSize: fontSize.base, color: colors.text, marginBottom: spacing.sm },
+    typeRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
+    typeBtn: { flex: 1, padding: spacing.sm, borderRadius: radius.sm, alignItems: 'center', backgroundColor: colors.border },
+    typeBtnText: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textSecondary },
+    colorRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.sm },
+    colorSwatch: { width: 32, height: 32, borderRadius: 16 },
+    colorSwatchActive: { borderWidth: 3, borderColor: colors.text },
+    formActions: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.lg },
+    saveBtn: { flex: 1, backgroundColor: colors.primary, padding: spacing.lg, borderRadius: radius.md, alignItems: 'center' },
+    saveBtnText: { color: colors.textInverse, fontSize: fontSize.base, fontWeight: fontWeight.semibold },
+    deleteBtn: { padding: spacing.lg, borderRadius: radius.md, borderWidth: 1, borderColor: colors.dangerLight },
+    deleteBtnText: { color: colors.danger, fontWeight: fontWeight.semibold },
+  }), [colors, spacing, radius, fontSize, fontWeight]);
 
   if (loading) return <ListSkeleton />;
 
@@ -107,30 +137,3 @@ export default function CategoriesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  filterRow: { flexDirection: 'row', padding: spacing.md, gap: spacing.sm },
-  filterBtn: { flex: 1, padding: spacing.sm, borderRadius: radius.sm, alignItems: 'center', backgroundColor: colors.border },
-  filterBtnText: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textSecondary },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', padding: spacing.md, gap: spacing.sm },
-  card: { width: '30%', flexGrow: 1, backgroundColor: colors.card, padding: spacing.md, borderRadius: radius.md, borderLeftWidth: 3, alignItems: 'center', minWidth: 100, ...shadow.sm },
-  cardIcon: { fontSize: 28, marginBottom: spacing.xs },
-  cardName: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.text, textAlign: 'center' },
-  cardType: { fontSize: fontSize.xs, color: colors.textTertiary, marginTop: 2, textTransform: 'capitalize' },
-  fab: { position: 'absolute', bottom: 20, right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', elevation: 4 },
-  fabText: { fontSize: 28, color: colors.textInverse, fontWeight: fontWeight.regular, marginTop: -2 },
-  form: { padding: spacing.xl },
-  label: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textSecondary, marginBottom: spacing.sm, marginTop: spacing.xs },
-  input: { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: spacing.md, fontSize: fontSize.base, color: colors.text, marginBottom: spacing.sm },
-  typeRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
-  typeBtn: { flex: 1, padding: spacing.sm, borderRadius: radius.sm, alignItems: 'center', backgroundColor: colors.border },
-  typeBtnText: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textSecondary },
-  colorRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.sm },
-  colorSwatch: { width: 32, height: 32, borderRadius: 16 },
-  colorSwatchActive: { borderWidth: 3, borderColor: colors.text },
-  formActions: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.lg },
-  saveBtn: { flex: 1, backgroundColor: colors.primary, padding: spacing.lg, borderRadius: radius.md, alignItems: 'center' },
-  saveBtnText: { color: colors.textInverse, fontSize: fontSize.base, fontWeight: fontWeight.semibold },
-  deleteBtn: { padding: spacing.lg, borderRadius: radius.md, borderWidth: 1, borderColor: colors.dangerLight },
-  deleteBtnText: { color: colors.danger, fontWeight: fontWeight.semibold },
-});

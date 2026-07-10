@@ -30,5 +30,9 @@ celery_app.conf.update(
             "task": "app.tasks.scheduled_tasks.index_unindexed_content",
             "schedule": 900.0,
         },
+        "detect-goal-conflicts-every-12-hours": {
+            "task": "app.tasks.scheduled_tasks.detect_goal_spending_conflicts",
+            "schedule": 43200.0,
+        },
     },
 )

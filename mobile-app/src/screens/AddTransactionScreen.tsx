@@ -1,17 +1,67 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Switch, KeyboardAvoidingView, Platform } from 'react-native';
-import { colors, spacing, radius, fontSize, fontWeight, shadow } from '../theme/tokens';
+import React, { useState, useMemo } from 'react';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import { useTheme } from '../theme/ThemeContext';
+import { spacing, radius, fontSize, fontWeight, shadow } from '../theme/tokens';
 import LocationPicker from '../components/LocationPicker';
 
 export default function AddTransactionScreen({ route, navigation }: any) {
+  const { colors } = useTheme();
   const prefill = route?.params?.prefill || {};
   const [description, setDescription] = useState(prefill.description || '');
   const [amount, setAmount] = useState(prefill.amount?.toString() || '');
   const [isExpense, setIsExpense] = useState(prefill.is_expense !== false);
   const [category, setCategory] = useState(prefill.category || '');
-  const [date, setDate] = useState(prefill.date || new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(() => new Date(prefill.date || new Date().toISOString().slice(0, 10)));
+  const [showPicker, setShowPicker] = useState(false);
   const [notes, setNotes] = useState('');
   const [location, setLocation] = useState<{ latitude: number; longitude: number; address?: string; name?: string } | null>(null);
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    content: { padding: spacing.md, paddingBottom: 40, flexGrow: 1 },
+    typeToggle: { flexDirection: 'row', borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, overflow: 'hidden', marginBottom: spacing.lg },
+    typeBtn: { flex: 1, paddingVertical: spacing.md, alignItems: 'center', backgroundColor: colors.card },
+    typeBtnActive: { backgroundColor: colors.primary },
+    typeBtnText: { fontSize: fontSize.md, fontWeight: fontWeight.medium, color: colors.textSecondary },
+    typeBtnTextActive: { color: '#fff' },
+    label: { fontSize: fontSize.sm, fontWeight: fontWeight.medium, color: colors.textSecondary, marginBottom: spacing.xs, marginTop: spacing.md },
+    input: {
+      backgroundColor: colors.card,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: spacing.md,
+      fontSize: fontSize.base,
+      color: colors.text,
+    },
+    dateInput: {
+      backgroundColor: colors.card,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: spacing.md,
+      fontSize: fontSize.base,
+      color: colors.text,
+      flexDirection: 'row' as const,
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    textArea: { minHeight: 80, textAlignVertical: 'top' },
+    saveBtn: {
+      backgroundColor: colors.primary,
+      borderRadius: radius.md,
+      padding: spacing.lg,
+      alignItems: 'center',
+      marginTop: spacing.xl,
+    },
+    saveBtnText: { fontSize: fontSize.base, fontWeight: fontWeight.semibold, color: '#fff' },
+  }), [colors]);
+
+  const handleDateChange = (_: DatePickerEvent, selected?: Date) => {
+    setShowPicker(Platform.OS === 'ios');
+    if (selected) setDate(selected);
+  };
 
   const handleSave = () => {
     const txn = {
@@ -19,7 +69,7 @@ export default function AddTransactionScreen({ route, navigation }: any) {
       amount: parseFloat(amount) || 0,
       type: isExpense ? 'expense' : 'income',
       category,
-      date,
+      date: date.toISOString().slice(0, 10),
       notes,
       location,
     };
@@ -27,8 +77,9 @@ export default function AddTransactionScreen({ route, navigation }: any) {
   };
 
   return (
+    <View style={styles.container}>
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-    <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <View style={styles.typeToggle}>
         <TouchableOpacity
           style={[styles.typeBtn, isExpense && styles.typeBtnActive]}
@@ -54,7 +105,18 @@ export default function AddTransactionScreen({ route, navigation }: any) {
       <TextInput style={styles.input} value={category} onChangeText={setCategory} placeholder="e.g., Food" placeholderTextColor={colors.textTertiary} />
 
       <Text style={styles.label}>Date</Text>
-      <TextInput style={styles.input} value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" placeholderTextColor={colors.textTertiary} />
+      <TouchableOpacity style={styles.dateInput} onPress={() => setShowPicker(true)} accessibilityLabel="Select date">
+        <Text style={{ color: colors.text }}>{date.toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}</Text>
+        <Text style={{ fontSize: 16 }}>📅</Text>
+      </TouchableOpacity>
+      {showPicker && (
+        <DateTimePicker
+          value={date}
+          mode="date"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={handleDateChange}
+        />
+      )}
 
       <Text style={styles.label}>Notes</Text>
       <TextInput style={[styles.input, styles.textArea]} value={notes} onChangeText={setNotes} placeholder="Optional notes..." placeholderTextColor={colors.textTertiary} multiline numberOfLines={3} />
@@ -67,34 +129,6 @@ export default function AddTransactionScreen({ route, navigation }: any) {
       </TouchableOpacity>
     </ScrollView>
     </KeyboardAvoidingView>
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.md, paddingBottom: 40 },
-  typeToggle: { flexDirection: 'row', borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, overflow: 'hidden', marginBottom: spacing.lg },
-  typeBtn: { flex: 1, paddingVertical: spacing.md, alignItems: 'center', backgroundColor: colors.card },
-  typeBtnActive: { backgroundColor: colors.primary },
-  typeBtnText: { fontSize: fontSize.md, fontWeight: fontWeight.medium, color: colors.textSecondary },
-  typeBtnTextActive: { color: '#fff' },
-  label: { fontSize: fontSize.sm, fontWeight: fontWeight.medium, color: colors.textSecondary, marginBottom: spacing.xs, marginTop: spacing.md },
-  input: {
-    backgroundColor: colors.card,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-    fontSize: fontSize.base,
-    color: colors.text,
-  },
-  textArea: { minHeight: 80, textAlignVertical: 'top' },
-  saveBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    padding: spacing.lg,
-    alignItems: 'center',
-    marginTop: spacing.xl,
-  },
-  saveBtnText: { fontSize: fontSize.base, fontWeight: fontWeight.semibold, color: '#fff' },
-});

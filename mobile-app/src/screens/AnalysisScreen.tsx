@@ -11,7 +11,8 @@ import { ListSkeleton } from '../components/ui/SkeletonLoader';
 import BarChart from '../components/ui/BarChart';
 import { formatCurrency, isIncome } from '../utils/format';
 import type { Transaction, PeriodAnalysis } from '../types';
-import { colors, spacing, radius, fontSize, fontWeight, shadow } from '../theme/tokens';
+import { spacing, radius, fontSize, fontWeight, shadow } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
 
 const PERIODS = [
   { key: '1m', label: '1M' },
@@ -22,6 +23,7 @@ const PERIODS = [
 ] as const;
 
 export default function AnalysisScreen() {
+  const { colors } = useTheme();
   const { isOffline } = useNetworkStatus();
   const [period, setPeriod] = useState<string>('1m');
   const [analysis, setAnalysis] = useState<PeriodAnalysis | null>(null);
@@ -74,6 +76,46 @@ export default function AnalysisScreen() {
       color: colors.info,
     }));
   }, [analysis]);
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    periodRow: { flexDirection: 'row', padding: spacing.md, gap: spacing.sm },
+    periodBtn: { flex: 1, padding: spacing.sm, borderRadius: radius.sm, alignItems: 'center', backgroundColor: colors.border },
+    periodBtnText: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textSecondary },
+    statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, paddingHorizontal: spacing.md, paddingBottom: spacing.sm },
+    statCard: {
+      flex: 1, minWidth: '45%', backgroundColor: colors.card, padding: spacing.lg,
+      borderRadius: radius.md, borderLeftWidth: 3, ...shadow.sm,
+    },
+    statLabel: { fontSize: fontSize.xs, color: colors.textTertiary, fontWeight: fontWeight.medium, textTransform: 'uppercase', letterSpacing: 0.5 },
+    statValue: { fontSize: fontSize.xl, fontWeight: fontWeight.bold, marginTop: spacing.xs },
+    section: { paddingHorizontal: spacing.md, paddingBottom: spacing.sm },
+    sectionTitle: { fontSize: fontSize.base, fontWeight: fontWeight.bold, color: colors.text, marginBottom: spacing.md, textTransform: 'uppercase', letterSpacing: 0.5 },
+    chartCard: { backgroundColor: colors.card, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.md, ...shadow.sm },
+    catRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md, gap: spacing.md },
+    catInfo: { flex: 1 },
+    catLabelRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.xs },
+    catDot: { width: 8, height: 8, borderRadius: 4 },
+    catName: { fontSize: fontSize.sm, color: colors.text, fontWeight: fontWeight.medium },
+    catPct: { fontSize: fontSize.xs, color: colors.textTertiary },
+    catBarBg: { height: 6, backgroundColor: colors.border, borderRadius: 3, overflow: 'hidden' },
+    catBarFill: { height: '100%', borderRadius: 3 },
+    catAmount: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.text, minWidth: 70, textAlign: 'right' },
+    merchantRow: {
+      flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card,
+      padding: spacing.md, borderRadius: radius.sm, marginBottom: spacing.xs, gap: spacing.md, ...shadow.sm,
+    },
+    merchantRank: { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.primaryLight, justifyContent: 'center', alignItems: 'center' },
+    merchantRankText: { fontSize: fontSize.xs, fontWeight: fontWeight.bold, color: colors.primary },
+    merchantName: { flex: 1, fontSize: fontSize.base, color: colors.text },
+    merchantAmount: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.text },
+    merchantCount: { fontSize: fontSize.xs, color: colors.textTertiary, minWidth: 24, textAlign: 'right' },
+    localGrid: { gap: spacing.sm },
+    localCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, padding: spacing.lg, borderRadius: radius.md, gap: spacing.md, ...shadow.sm },
+    localIcon: { fontSize: 28 },
+    localLabel: { fontSize: fontSize.xs, color: colors.textTertiary, textTransform: 'uppercase', letterSpacing: 0.5 },
+    localValue: { fontSize: fontSize.lg, fontWeight: fontWeight.bold, marginTop: 2 },
+  }), [colors, spacing, radius, fontSize, fontWeight]);
 
   if (loading) return <ListSkeleton />;
 
@@ -191,42 +233,3 @@ export default function AnalysisScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  periodRow: { flexDirection: 'row', padding: spacing.md, gap: spacing.sm },
-  periodBtn: { flex: 1, padding: spacing.sm, borderRadius: radius.sm, alignItems: 'center', backgroundColor: colors.border },
-  periodBtnText: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textSecondary },
-  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, paddingHorizontal: spacing.md, paddingBottom: spacing.sm },
-  statCard: {
-    flex: 1, minWidth: '45%', backgroundColor: colors.card, padding: spacing.lg,
-    borderRadius: radius.md, borderLeftWidth: 3, ...shadow.sm,
-  },
-  statLabel: { fontSize: fontSize.xs, color: colors.textTertiary, fontWeight: fontWeight.medium, textTransform: 'uppercase', letterSpacing: 0.5 },
-  statValue: { fontSize: fontSize.xl, fontWeight: fontWeight.bold, marginTop: spacing.xs },
-  section: { paddingHorizontal: spacing.md, paddingBottom: spacing.sm },
-  sectionTitle: { fontSize: fontSize.base, fontWeight: fontWeight.bold, color: colors.text, marginBottom: spacing.md, textTransform: 'uppercase', letterSpacing: 0.5 },
-  chartCard: { backgroundColor: colors.card, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.md, ...shadow.sm },
-  catRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md, gap: spacing.md },
-  catInfo: { flex: 1 },
-  catLabelRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.xs },
-  catDot: { width: 8, height: 8, borderRadius: 4 },
-  catName: { fontSize: fontSize.sm, color: colors.text, fontWeight: fontWeight.medium },
-  catPct: { fontSize: fontSize.xs, color: colors.textTertiary },
-  catBarBg: { height: 6, backgroundColor: colors.border, borderRadius: 3, overflow: 'hidden' },
-  catBarFill: { height: '100%', borderRadius: 3 },
-  catAmount: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.text, minWidth: 70, textAlign: 'right' },
-  merchantRow: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card,
-    padding: spacing.md, borderRadius: radius.sm, marginBottom: spacing.xs, gap: spacing.md, ...shadow.sm,
-  },
-  merchantRank: { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.primaryLight, justifyContent: 'center', alignItems: 'center' },
-  merchantRankText: { fontSize: fontSize.xs, fontWeight: fontWeight.bold, color: colors.primary },
-  merchantName: { flex: 1, fontSize: fontSize.base, color: colors.text },
-  merchantAmount: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.text },
-  merchantCount: { fontSize: fontSize.xs, color: colors.textTertiary, minWidth: 24, textAlign: 'right' },
-  localGrid: { gap: spacing.sm },
-  localCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, padding: spacing.lg, borderRadius: radius.md, gap: spacing.md, ...shadow.sm },
-  localIcon: { fontSize: 28 },
-  localLabel: { fontSize: fontSize.xs, color: colors.textTertiary, textTransform: 'uppercase', letterSpacing: 0.5 },
-  localValue: { fontSize: fontSize.lg, fontWeight: fontWeight.bold, marginTop: 2 },
-});

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   RefreshControl, ActivityIndicator, TextInput, Alert,
@@ -13,7 +13,8 @@ import Modal from '../components/ui/Modal';
 import EmptyState from '../components/ui/EmptyState';
 import { formatCurrency } from '../utils/format';
 import type { Account, AccountType } from '../types';
-import { colors, spacing, radius, fontSize, fontWeight, shadow } from '../theme/tokens';
+import { spacing, radius, fontSize, fontWeight, shadow } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
 
 const ACCOUNT_TYPES: { key: AccountType; label: string; color: string; icon: string }[] = [
   { key: 'checking', label: 'Checking', color: '#0284c7', icon: '🏦' },
@@ -26,6 +27,7 @@ const ACCOUNT_TYPES: { key: AccountType; label: string; color: string; icon: str
 ];
 
 export default function AccountsScreen() {
+  const { colors } = useTheme();
   const { success: hapticSuccess, light: hapticLight, heavy: hapticHeavy } = useHaptics();
   const { data: accounts, loading, refreshing, refresh, refreshFromApi } = useOfflineList<Account>(TABLES.ACCOUNTS, {
     orderBy: 'balance DESC',
@@ -75,10 +77,44 @@ export default function AccountsScreen() {
     ]);
   };
 
+  const styles = useMemo(() => StyleSheet.create({
+    screenTitle: { fontSize: fontSize.xxl, fontWeight: fontWeight.bold, color: colors.text, padding: spacing.lg, paddingBottom: spacing.sm },
+    container: { flex: 1, backgroundColor: colors.background },
+    totalCard: { backgroundColor: colors.primary, padding: spacing.xl, alignItems: 'center' },
+    totalLabel: { fontSize: fontSize.sm, color: '#bfdbfe', fontWeight: fontWeight.medium },
+    totalValue: { fontSize: fontSize.hero, fontWeight: fontWeight.bold, color: colors.textInverse, marginTop: spacing.xs },
+    totalCount: { fontSize: fontSize.xs, color: '#bfdbfe', marginTop: spacing.xs },
+    accountRow: {
+      flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card,
+      padding: spacing.lg, marginHorizontal: spacing.md, marginTop: spacing.md,
+      borderRadius: radius.md, gap: spacing.lg, ...shadow.sm,
+    },
+    accountIcon: { width: 48, height: 48, borderRadius: radius.xl, justifyContent: 'center', alignItems: 'center' },
+    accountIconText: { fontSize: 22 },
+    accountInfo: { flex: 1 },
+    accountName: { fontSize: fontSize.base, fontWeight: fontWeight.semibold, color: colors.text },
+    accountType: { fontSize: fontSize.xs, color: colors.textTertiary, marginTop: 2 },
+    accountBalance: { fontSize: fontSize.lg, fontWeight: fontWeight.bold },
+    fab: { position: 'absolute', bottom: 20, right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', elevation: 4 },
+    fabText: { fontSize: 28, color: colors.textInverse, fontWeight: fontWeight.regular, marginTop: -2 },
+    form: { padding: spacing.xl },
+    label: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textSecondary, marginBottom: spacing.sm, marginTop: spacing.xs },
+    input: { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: spacing.md, fontSize: fontSize.base, color: colors.text, marginBottom: spacing.sm },
+    typeChip: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, marginRight: spacing.sm, marginBottom: spacing.sm },
+    typeChipIcon: { fontSize: 16 },
+    typeChipText: { fontSize: fontSize.sm, color: colors.textSecondary },
+    formActions: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.lg },
+    saveBtn: { flex: 1, backgroundColor: colors.primary, padding: spacing.lg, borderRadius: radius.md, alignItems: 'center' },
+    saveBtnText: { color: colors.textInverse, fontSize: fontSize.base, fontWeight: fontWeight.semibold },
+    deleteBtn: { padding: spacing.lg, borderRadius: radius.md, borderWidth: 1, borderColor: colors.dangerLight },
+    deleteBtnText: { color: colors.danger, fontWeight: fontWeight.semibold },
+  }), [colors, spacing, radius, fontSize, fontWeight]);
+
   if (loading) return <ListSkeleton />;
 
   return (
     <View style={styles.container}>
+      <Text style={styles.screenTitle}>Accounts</Text>
       <View style={styles.totalCard}>
         <Text style={styles.totalLabel}>Total Balance</Text>
         <Text style={styles.totalValue}>{formatCurrency(totalBalance)}</Text>
@@ -136,34 +172,3 @@ export default function AccountsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  totalCard: { backgroundColor: colors.primary, padding: spacing.xl, alignItems: 'center' },
-  totalLabel: { fontSize: fontSize.sm, color: '#bfdbfe', fontWeight: fontWeight.medium },
-  totalValue: { fontSize: fontSize.hero, fontWeight: fontWeight.bold, color: colors.textInverse, marginTop: spacing.xs },
-  totalCount: { fontSize: fontSize.xs, color: '#bfdbfe', marginTop: spacing.xs },
-  accountRow: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card,
-    padding: spacing.lg, marginHorizontal: spacing.md, marginTop: spacing.md,
-    borderRadius: radius.md, gap: spacing.lg, ...shadow.sm,
-  },
-  accountIcon: { width: 48, height: 48, borderRadius: radius.xl, justifyContent: 'center', alignItems: 'center' },
-  accountIconText: { fontSize: 22 },
-  accountInfo: { flex: 1 },
-  accountName: { fontSize: fontSize.base, fontWeight: fontWeight.semibold, color: colors.text },
-  accountType: { fontSize: fontSize.xs, color: colors.textTertiary, marginTop: 2 },
-  accountBalance: { fontSize: fontSize.lg, fontWeight: fontWeight.bold },
-  fab: { position: 'absolute', bottom: 20, right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', elevation: 4 },
-  fabText: { fontSize: 28, color: colors.textInverse, fontWeight: fontWeight.regular, marginTop: -2 },
-  form: { padding: spacing.xl },
-  label: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textSecondary, marginBottom: spacing.sm, marginTop: spacing.xs },
-  input: { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: spacing.md, fontSize: fontSize.base, color: colors.text, marginBottom: spacing.sm },
-  typeChip: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, marginRight: spacing.sm, marginBottom: spacing.sm },
-  typeChipIcon: { fontSize: 16 },
-  typeChipText: { fontSize: fontSize.sm, color: colors.textSecondary },
-  formActions: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.lg },
-  saveBtn: { flex: 1, backgroundColor: colors.primary, padding: spacing.lg, borderRadius: radius.md, alignItems: 'center' },
-  saveBtnText: { color: colors.textInverse, fontSize: fontSize.base, fontWeight: fontWeight.semibold },
-  deleteBtn: { padding: spacing.lg, borderRadius: radius.md, borderWidth: 1, borderColor: colors.dangerLight },
-  deleteBtnText: { color: colors.danger, fontWeight: fontWeight.semibold },
-});

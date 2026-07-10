@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   RefreshControl, ActivityIndicator, TextInput, Alert,
@@ -14,11 +14,12 @@ import EmptyState from '../components/ui/EmptyState';
 import { formatCurrency, daysUntil } from '../utils/format';
 import type { Goal } from '../types';
 import Confetti from '../components/Confetti';
-import { colors, spacing, radius, fontSize, fontWeight, shadow } from '../theme/tokens';
-
-const STATUS_COLORS: Record<string, string> = { active: colors.primary, completed: colors.success, cancelled: colors.danger, paused: colors.warning };
+import { spacing, radius, fontSize, fontWeight, shadow } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
 
 export default function GoalsScreen() {
+  const { colors } = useTheme();
+  const STATUS_COLORS: Record<string, string> = { active: colors.primary, completed: colors.success, cancelled: colors.danger, paused: colors.warning };
   const { success: hapticSuccess, light: hapticLight, heavy: hapticHeavy } = useHaptics();
   const { data: goals, loading, refreshing, refresh, refreshFromApi } = useOfflineList<Goal>(TABLES.GOALS, {
     orderBy: 'target_date ASC',
@@ -67,6 +68,31 @@ export default function GoalsScreen() {
       { text: 'Delete', style: 'destructive', onPress: async () => { await goalsApi.delete(id); await repository.delete(TABLES.GOALS, id); hapticHeavy(); refresh(); } },
     ]);
   };
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    card: { backgroundColor: colors.card, margin: spacing.md, marginBottom: 0, padding: spacing.lg, borderRadius: radius.md, ...shadow.sm },
+    cardHeader: { marginBottom: spacing.md },
+    cardTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    cardName: { fontSize: fontSize.base, fontWeight: fontWeight.semibold, color: colors.text, flex: 1 },
+    statusBadge: { paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: radius.sm },
+    statusText: { fontSize: fontSize.xs, fontWeight: fontWeight.semibold, textTransform: 'capitalize' },
+    progressBg: { height: 10, backgroundColor: colors.border, borderRadius: radius.sm, overflow: 'hidden' },
+    progressFill: { height: '100%', borderRadius: radius.sm },
+    statsRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.sm },
+    statItem: { fontSize: fontSize.xs, color: colors.textSecondary, fontWeight: fontWeight.medium },
+    remain: { fontSize: fontSize.xs, color: colors.warning, fontWeight: fontWeight.semibold, marginTop: spacing.xs },
+    fab: { position: 'absolute', bottom: 20, right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', elevation: 4 },
+    fabText: { fontSize: 28, color: colors.textInverse, fontWeight: fontWeight.regular, marginTop: -2 },
+    form: { padding: spacing.xl },
+    label: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textSecondary, marginBottom: spacing.sm, marginTop: spacing.xs },
+    input: { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: spacing.md, fontSize: fontSize.base, color: colors.text, marginBottom: spacing.sm },
+    formActions: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.lg },
+    saveBtn: { flex: 1, backgroundColor: colors.primary, padding: spacing.lg, borderRadius: radius.md, alignItems: 'center' },
+    saveBtnText: { color: colors.textInverse, fontSize: fontSize.base, fontWeight: fontWeight.semibold },
+    deleteBtn: { padding: spacing.lg, borderRadius: radius.md, borderWidth: 1, borderColor: colors.dangerLight },
+    deleteBtnText: { color: colors.danger, fontWeight: fontWeight.semibold },
+  }), [colors, spacing, radius, fontSize, fontWeight]);
 
   if (loading) return <CardSkeleton />;
 
@@ -128,27 +154,3 @@ export default function GoalsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  card: { backgroundColor: colors.card, margin: spacing.md, marginBottom: 0, padding: spacing.lg, borderRadius: radius.md, ...shadow.sm },
-  cardHeader: { marginBottom: spacing.md },
-  cardTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  cardName: { fontSize: fontSize.base, fontWeight: fontWeight.semibold, color: colors.text, flex: 1 },
-  statusBadge: { paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: radius.sm },
-  statusText: { fontSize: fontSize.xs, fontWeight: fontWeight.semibold, textTransform: 'capitalize' },
-  progressBg: { height: 10, backgroundColor: colors.border, borderRadius: radius.sm, overflow: 'hidden' },
-  progressFill: { height: '100%', borderRadius: radius.sm },
-  statsRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.sm },
-  statItem: { fontSize: fontSize.xs, color: colors.textSecondary, fontWeight: fontWeight.medium },
-  remain: { fontSize: fontSize.xs, color: colors.warning, fontWeight: fontWeight.semibold, marginTop: spacing.xs },
-  fab: { position: 'absolute', bottom: 20, right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', elevation: 4 },
-  fabText: { fontSize: 28, color: colors.textInverse, fontWeight: fontWeight.regular, marginTop: -2 },
-  form: { padding: spacing.xl },
-  label: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textSecondary, marginBottom: spacing.sm, marginTop: spacing.xs },
-  input: { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: spacing.md, fontSize: fontSize.base, color: colors.text, marginBottom: spacing.sm },
-  formActions: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.lg },
-  saveBtn: { flex: 1, backgroundColor: colors.primary, padding: spacing.lg, borderRadius: radius.md, alignItems: 'center' },
-  saveBtnText: { color: colors.textInverse, fontSize: fontSize.base, fontWeight: fontWeight.semibold },
-  deleteBtn: { padding: spacing.lg, borderRadius: radius.md, borderWidth: 1, borderColor: colors.dangerLight },
-  deleteBtnText: { color: colors.danger, fontWeight: fontWeight.semibold },
-});

@@ -1,13 +1,12 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ActivityIndicator, View, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useAuthStore } from '../stores/authStore';
-import { colors, fontSize, fontWeight } from '../theme/tokens';
-
-const defaultHeader = { headerStyle: { backgroundColor: colors.surface }, headerTintColor: colors.text, headerTitleStyle: { fontWeight: fontWeight.semibold, fontSize: fontSize.lg } };
+import { useTheme } from '../theme/ThemeContext';
+import { fontSize, fontWeight } from '../theme/tokens';
 
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
@@ -48,8 +47,9 @@ function TabIcon({ label, focused }: { label: string; focused: boolean }) {
 }
 
 function MainTabs() {
+  const { colors } = useTheme();
   return (
-    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: '#f8fafc' }}>
+    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.background }}>
       <Tab.Navigator
         screenOptions={({ route }) => ({
           tabBarIcon: ({ focused }) => <TabIcon label={route.name} focused={focused} />,
@@ -70,8 +70,15 @@ function MainTabs() {
 }
 
 export default function AppNavigator() {
+  const { colors, isDark } = useTheme();
   const { isAuthenticated, isLoading, loadUser } = useAuthStore();
   const [initializing, setInitializing] = React.useState(true);
+
+  const defaultHeader = useMemo(() => ({
+    headerStyle: { backgroundColor: colors.surface },
+    headerTintColor: colors.text,
+    headerTitleStyle: { fontWeight: fontWeight.semibold, fontSize: fontSize.lg },
+  }), [colors]);
 
   React.useEffect(() => {
     const init = async () => {
@@ -83,8 +90,8 @@ export default function AppNavigator() {
 
   if (initializing || isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
-        <ActivityIndicator size="large" color="#0284c7" />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -105,7 +112,7 @@ export default function AppNavigator() {
             <Stack.Screen name="Copilot" component={CopilotScreen} options={{ headerShown: true, title: 'AI Copilot', ...defaultHeader }} />
             <Stack.Screen name="CameraOCR" component={CameraOCRScreen} options={{ headerShown: true, title: 'Scan Receipt', ...defaultHeader }} />
             <Stack.Screen name="Settings" component={SettingsScreen} options={{ headerShown: true, title: 'Settings', ...defaultHeader }} />
-            <Stack.Screen name="AddTransaction" component={AddTransactionScreen} options={{ headerShown: true, title: 'Add Transaction', ...defaultHeader }} />
+            <Stack.Screen name="AddTransaction" component={AddTransactionScreen} options={{ presentation: 'modal', headerShown: true, title: 'Add Transaction', ...defaultHeader }} />
             <Stack.Screen name="Streaks" component={StreaksScreen} options={{ headerShown: true, title: 'Streaks', ...defaultHeader }} />
             <Stack.Screen name="Badges" component={BadgesScreen} options={{ headerShown: true, title: 'Badges', ...defaultHeader }} />
             <Stack.Screen name="SpendingStory" component={SpendingStoryScreen} options={{ headerShown: true, title: 'Your Month', ...defaultHeader }} />

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
@@ -6,9 +6,29 @@ import {
 } from 'react-native';
 import { useAuthStore } from '../stores/authStore';
 import { useHaptics } from '../hooks/useHaptics';
-import { colors, spacing, radius, fontSize, fontWeight } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
+import { spacing, radius, fontSize, fontWeight } from '../theme/tokens';
 
 export default function LoginScreen({ navigation }: any) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.surface },
+  content: { flexGrow: 1, justifyContent: 'center', padding: spacing.xxl },
+  header: { alignItems: 'center', marginBottom: spacing.xxxl },
+  logo: { fontSize: 64, marginBottom: spacing.md },
+  title: { fontSize: fontSize.xxl + 4, fontWeight: fontWeight.bold, color: colors.text },
+  subtitle: { fontSize: fontSize.base, color: colors.slate500, marginTop: spacing.xs },
+  form: { width: '100%' },
+  label: { fontSize: fontSize.base - 1, fontWeight: fontWeight.semibold, color: colors.textSecondary, marginBottom: spacing.sm },
+  input: { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.lg - 2, fontSize: fontSize.base + 1, color: colors.text, marginBottom: spacing.xs },
+  inputError: { borderColor: colors.error },
+  errorText: { fontSize: fontSize.xs + 1, color: colors.error, marginBottom: spacing.sm, marginLeft: spacing.xs },
+  button: { backgroundColor: colors.primary, padding: spacing.lg, borderRadius: radius.md, alignItems: 'center', marginTop: spacing.lg },
+  buttonText: { color: colors.textInverse, fontSize: fontSize.base + 1, fontWeight: fontWeight.semibold },
+  linkBtn: { marginTop: spacing.xl, alignItems: 'center' },
+  linkText: { fontSize: fontSize.sm + 1, color: colors.slate500 },
+  linkHighlight: { color: colors.primary, fontWeight: fontWeight.semibold },
+}), [colors, spacing, radius, fontSize, fontWeight]);
   const { light: hapticLight } = useHaptics();
   const { login } = useAuthStore();
   const [email, setEmail] = useState('');
@@ -92,21 +112,3 @@ export default function LoginScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.surface },
-  content: { flexGrow: 1, justifyContent: 'center', padding: spacing.xxl },
-  header: { alignItems: 'center', marginBottom: spacing.xxxl },
-  logo: { fontSize: 64, marginBottom: spacing.md },
-  title: { fontSize: fontSize.xxl + 4, fontWeight: fontWeight.bold, color: colors.text },
-  subtitle: { fontSize: fontSize.base, color: colors.slate500, marginTop: spacing.xs },
-  form: { width: '100%' },
-  label: { fontSize: fontSize.base - 1, fontWeight: fontWeight.semibold, color: colors.textSecondary, marginBottom: spacing.sm },
-  input: { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.lg - 2, fontSize: fontSize.base + 1, color: colors.text, marginBottom: spacing.xs },
-  inputError: { borderColor: colors.error },
-  errorText: { fontSize: fontSize.xs + 1, color: colors.error, marginBottom: spacing.sm, marginLeft: spacing.xs },
-  button: { backgroundColor: colors.primary, padding: spacing.lg, borderRadius: radius.md, alignItems: 'center', marginTop: spacing.lg },
-  buttonText: { color: colors.textInverse, fontSize: fontSize.base + 1, fontWeight: fontWeight.semibold },
-  linkBtn: { marginTop: spacing.xl, alignItems: 'center' },
-  linkText: { fontSize: fontSize.sm + 1, color: colors.slate500 },
-  linkHighlight: { color: colors.primary, fontWeight: fontWeight.semibold },
-});

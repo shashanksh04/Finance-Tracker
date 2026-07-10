@@ -14,7 +14,8 @@ import Modal from '../components/ui/Modal';
 import EmptyState from '../components/ui/EmptyState';
 import { formatCurrency, formatTransactionAmount, isIncome } from '../utils/format';
 import type { Transaction, Account, Category, TransactionType } from '../types';
-import { colors, spacing, radius, fontSize, fontWeight, shadow } from '../theme/tokens';
+import { spacing, radius, fontSize, fontWeight, shadow } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
 
 function groupByDate(txns: Transaction[]): Record<string, Transaction[]> {
   const groups: Record<string, Transaction[]> = {};
@@ -36,6 +37,7 @@ function formatSectionDate(dateStr: string): string {
 }
 
 export default function TransactionsScreen() {
+  const { colors } = useTheme();
   const { success: hapticSuccess, light: hapticLight, heavy: hapticHeavy } = useHaptics();
   const { isOffline } = useNetworkStatus();
 
@@ -134,10 +136,59 @@ export default function TransactionsScreen() {
     ]);
   };
 
+  const styles = useMemo(() => StyleSheet.create({
+    screenTitle: { fontSize: fontSize.xxl, fontWeight: fontWeight.bold, color: colors.text, padding: spacing.lg, paddingBottom: spacing.sm },
+    container: { flex: 1, backgroundColor: colors.background },
+    searchContainer: {
+      flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card,
+      margin: spacing.md, paddingHorizontal: spacing.md, borderRadius: radius.md,
+      borderWidth: 1, borderColor: colors.border, gap: spacing.sm,
+    },
+    searchIcon: { fontSize: 16 },
+    searchInput: { flex: 1, paddingVertical: spacing.md, fontSize: fontSize.base, color: colors.text },
+    clearSearch: { fontSize: 16, color: colors.textTertiary, padding: spacing.xs },
+    dayGroup: { marginBottom: spacing.sm },
+    dayHeader: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
+    },
+    dayTitle: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5 },
+    dayTotal: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold },
+    trxRow: {
+      flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card,
+      paddingVertical: spacing.md, paddingHorizontal: spacing.lg,
+      marginHorizontal: spacing.md, marginBottom: 1, gap: spacing.md,
+    },
+    trxIcon: { width: 40, height: 40, borderRadius: radius.xl, justifyContent: 'center', alignItems: 'center' },
+    trxIconText: { fontSize: 18 },
+    trxInfo: { flex: 1 },
+    trxDesc: { fontSize: fontSize.base, fontWeight: fontWeight.medium, color: colors.text },
+    trxMeta: { fontSize: fontSize.xs, color: colors.textTertiary, marginTop: 2 },
+    trxRight: { alignItems: 'flex-end' },
+    trxAmount: { fontSize: fontSize.base, fontWeight: fontWeight.bold },
+    fabRow: { position: 'absolute', bottom: 20, right: 16, gap: spacing.sm },
+    fab: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', elevation: 4 },
+    fabIcon: { fontSize: 18 },
+    form: { padding: spacing.xl, maxHeight: 500 },
+    label: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textSecondary, marginBottom: spacing.sm, marginTop: spacing.xs },
+    input: { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: spacing.md, fontSize: fontSize.base, color: colors.text, marginBottom: spacing.sm },
+    typeRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
+    typeBtn: { flex: 1, padding: spacing.sm, borderRadius: radius.sm, alignItems: 'center', backgroundColor: colors.border },
+    typeBtnText: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold },
+    choiceChip: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, marginRight: spacing.sm, marginBottom: spacing.sm },
+    choiceChipText: { fontSize: fontSize.sm, color: colors.textSecondary },
+    formActions: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.lg },
+    saveBtn: { flex: 1, backgroundColor: colors.primary, padding: spacing.lg, borderRadius: radius.md, alignItems: 'center' },
+    saveBtnText: { color: colors.textInverse, fontSize: fontSize.base, fontWeight: fontWeight.semibold },
+    deleteBtn: { padding: spacing.lg, borderRadius: radius.md, borderWidth: 1, borderColor: colors.dangerLight },
+    deleteBtnText: { color: colors.danger, fontWeight: fontWeight.semibold },
+  }), [colors, spacing, radius, fontSize, fontWeight]);
+
   if (loading) return <ListSkeleton />;
 
   return (
     <View style={styles.container}>
+      <Text style={styles.screenTitle}>Transactions</Text>
       <View style={styles.searchContainer}>
         <Text style={styles.searchIcon}>🔍</Text>
         <TextInput style={styles.searchInput} value={search} onChangeText={setSearch} placeholder="Search transactions..." placeholderTextColor={colors.textTertiary} />
@@ -249,49 +300,3 @@ export default function TransactionsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  searchContainer: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card,
-    margin: spacing.md, paddingHorizontal: spacing.md, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.border, gap: spacing.sm,
-  },
-  searchIcon: { fontSize: 16 },
-  searchInput: { flex: 1, paddingVertical: spacing.md, fontSize: fontSize.base, color: colors.text },
-  clearSearch: { fontSize: 16, color: colors.textTertiary, padding: spacing.xs },
-  dayGroup: { marginBottom: spacing.sm },
-  dayHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
-  },
-  dayTitle: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5 },
-  dayTotal: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold },
-  trxRow: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card,
-    paddingVertical: spacing.md, paddingHorizontal: spacing.lg,
-    marginHorizontal: spacing.md, marginBottom: 1, gap: spacing.md,
-  },
-  trxIcon: { width: 40, height: 40, borderRadius: radius.xl, justifyContent: 'center', alignItems: 'center' },
-  trxIconText: { fontSize: 18 },
-  trxInfo: { flex: 1 },
-  trxDesc: { fontSize: fontSize.base, fontWeight: fontWeight.medium, color: colors.text },
-  trxMeta: { fontSize: fontSize.xs, color: colors.textTertiary, marginTop: 2 },
-  trxRight: { alignItems: 'flex-end' },
-  trxAmount: { fontSize: fontSize.base, fontWeight: fontWeight.bold },
-  fabRow: { position: 'absolute', bottom: 20, right: 16, gap: spacing.sm },
-  fab: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', elevation: 4 },
-  fabIcon: { fontSize: 18 },
-  form: { padding: spacing.xl, maxHeight: 500 },
-  label: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textSecondary, marginBottom: spacing.sm, marginTop: spacing.xs },
-  input: { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: spacing.md, fontSize: fontSize.base, color: colors.text, marginBottom: spacing.sm },
-  typeRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
-  typeBtn: { flex: 1, padding: spacing.sm, borderRadius: radius.sm, alignItems: 'center', backgroundColor: colors.border },
-  typeBtnText: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold },
-  choiceChip: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, marginRight: spacing.sm, marginBottom: spacing.sm },
-  choiceChipText: { fontSize: fontSize.sm, color: colors.textSecondary },
-  formActions: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.lg },
-  saveBtn: { flex: 1, backgroundColor: colors.primary, padding: spacing.lg, borderRadius: radius.md, alignItems: 'center' },
-  saveBtnText: { color: colors.textInverse, fontSize: fontSize.base, fontWeight: fontWeight.semibold },
-  deleteBtn: { padding: spacing.lg, borderRadius: radius.md, borderWidth: 1, borderColor: colors.dangerLight },
-  deleteBtnText: { color: colors.danger, fontWeight: fontWeight.semibold },
-});

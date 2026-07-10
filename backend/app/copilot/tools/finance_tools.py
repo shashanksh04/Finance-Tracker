@@ -314,6 +314,72 @@ async def get_goal_progress(
     return {"goals": items, "count": len(items)}
 
 
+async def get_goal_spending_impact(
+    db: AsyncSession,
+    user_id: str,
+    user,
+) -> dict:
+    today = date.today()
+    month_start = today.replace(day=1)
+    month_end = (month_start + timedelta(days=32)).replace(day=1)
+
+    result = await db.execute(
+        select(Goal).where(Goal.user_id == user_id)
+    )
+    goals = result.scalars().all()
+
+    expense_r = await db.execute(
+        select(func.coalesce(func.sum(Transaction.amount), 0))
+        .where(Transaction.user_id == user_id, Transaction.date >= month_start, Transaction.date < month_end, Transaction.type == "expense")
+    )
+    income_r = await db.execute(
+        select(func.coalesce(func.sum(Transaction.amount), 0))
+        .where(Transaction.user_id == user_id, Transaction.date >= month_start, Transaction.date < month_end, Transaction.type == "income")
+    )
+    monthly_expense = float(expense_r.scalar() or 0)
+    monthly_income = float(income_r.scalar() or 0)
+    surplus = monthly_income - monthly_expense
+
+    items = []
+    for g in goals:
+        target = float(g.target_amount)
+        current = float(g.current_amount)
+        remaining = target - current
+        suggested_monthly = None
+        if g.deadline:
+            delta = (g.deadline - today).days
+            days = max(0, delta)
+            if days > 0 and remaining > 0:
+                suggested_monthly = round(remaining / days * 30, 2)
+        impact = "neutral"
+        if suggested_monthly and surplus > 0:
+            if suggested_monthly > surplus:
+                impact = "at_risk"
+            elif surplus >= suggested_monthly:
+                impact = "on_track"
+        elif suggested_monthly and surplus <= 0:
+            impact = "at_risk"
+
+        items.append({
+            "goal_name": g.name,
+            "target": target,
+            "current": current,
+            "remaining": round(remaining, 2),
+            "progress_percentage": round(current / target * 100, 1) if target > 0 else 0,
+            "suggested_monthly": suggested_monthly,
+            "monthly_surplus": round(surplus, 2),
+            "impact": impact,
+        })
+
+    return {
+        "goals": items,
+        "monthly_income": round(monthly_income, 2),
+        "monthly_expenses": round(monthly_expense, 2),
+        "monthly_surplus": round(surplus, 2),
+        "count": len(items),
+    }
+
+
 async def get_accounts(
     db: AsyncSession,
     user_id: str,

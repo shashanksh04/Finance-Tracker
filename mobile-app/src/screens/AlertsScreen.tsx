@@ -8,11 +8,12 @@ import { TABLES } from '../database/schema';
 import { ListSkeleton } from '../components/ui/SkeletonLoader';
 import { formatDate } from '../utils/format';
 import type { Alert, AlertPreferences } from '../types';
-import { colors, spacing, radius, fontSize, fontWeight, shadow } from '../theme/tokens';
-
-const SEVERITY_COLORS: Record<string, string> = { critical: colors.danger, warning: colors.warning, info: colors.primary, success: colors.success };
+import { spacing, radius, fontSize, fontWeight, shadow } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
 
 export default function AlertsScreen() {
+  const { colors } = useTheme();
+  const SEVERITY_COLORS: Record<string, string> = { critical: colors.danger, warning: colors.warning, info: colors.primary, success: colors.success };
   const { success: hapticSuccess, light: hapticLight } = useHaptics();
   const { data: alerts, loading, refreshing, refresh, refreshFromApi } = useOfflineList<Alert>(TABLES.ALERTS, {
     orderBy: 'created_at DESC',
@@ -40,6 +41,27 @@ export default function AlertsScreen() {
   };
 
   const visible = useMemo(() => alerts.filter((a) => !a.dismissed), [alerts]);
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    generateBtn: { backgroundColor: colors.primary, padding: spacing.lg, margin: spacing.md, borderRadius: radius.md, alignItems: 'center' },
+    generateBtnText: { color: colors.textInverse, fontSize: fontSize.base, fontWeight: fontWeight.semibold },
+    section: { padding: spacing.md, paddingBottom: 0 },
+    sectionTitle: { fontSize: fontSize.sm, fontWeight: fontWeight.bold, color: colors.text, marginBottom: spacing.sm, textTransform: 'uppercase', letterSpacing: 0.5 },
+    prefRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, padding: spacing.lg, borderRadius: radius.md, marginBottom: spacing.sm, ...shadow.sm },
+    prefName: { fontSize: fontSize.base, fontWeight: fontWeight.medium, color: colors.text, textTransform: 'capitalize' },
+    prefDesc: { fontSize: fontSize.xs, color: colors.textTertiary, marginTop: 2 },
+    alertCard: { backgroundColor: colors.card, padding: spacing.lg, borderRadius: radius.md, marginBottom: spacing.sm, borderLeftWidth: 4, ...shadow.sm },
+    alertHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.xs },
+    alertSeverity: { fontSize: fontSize.xs, fontWeight: fontWeight.bold },
+    alertDate: { fontSize: fontSize.xs, color: colors.textTertiary },
+    alertTitle: { fontSize: fontSize.base, fontWeight: fontWeight.semibold, color: colors.text },
+    alertMessage: { fontSize: fontSize.sm, color: colors.textSecondary, marginTop: spacing.xs },
+    alertActions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
+    alertActionBtn: { paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.border },
+    alertActionText: { fontSize: fontSize.xs, color: colors.primary, fontWeight: fontWeight.semibold },
+    empty: { fontSize: fontSize.sm, color: colors.textTertiary, textAlign: 'center', padding: spacing.xl },
+  }), [colors, spacing, radius, fontSize, fontWeight]);
 
   if (loading || loadingPrefs) return <ListSkeleton />;
 
@@ -95,23 +117,3 @@ export default function AlertsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  generateBtn: { backgroundColor: colors.primary, padding: spacing.lg, margin: spacing.md, borderRadius: radius.md, alignItems: 'center' },
-  generateBtnText: { color: colors.textInverse, fontSize: fontSize.base, fontWeight: fontWeight.semibold },
-  section: { padding: spacing.md, paddingBottom: 0 },
-  sectionTitle: { fontSize: fontSize.sm, fontWeight: fontWeight.bold, color: colors.text, marginBottom: spacing.sm, textTransform: 'uppercase', letterSpacing: 0.5 },
-  prefRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, padding: spacing.lg, borderRadius: radius.md, marginBottom: spacing.sm, ...shadow.sm },
-  prefName: { fontSize: fontSize.base, fontWeight: fontWeight.medium, color: colors.text, textTransform: 'capitalize' },
-  prefDesc: { fontSize: fontSize.xs, color: colors.textTertiary, marginTop: 2 },
-  alertCard: { backgroundColor: colors.card, padding: spacing.lg, borderRadius: radius.md, marginBottom: spacing.sm, borderLeftWidth: 4, ...shadow.sm },
-  alertHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.xs },
-  alertSeverity: { fontSize: fontSize.xs, fontWeight: fontWeight.bold },
-  alertDate: { fontSize: fontSize.xs, color: colors.textTertiary },
-  alertTitle: { fontSize: fontSize.base, fontWeight: fontWeight.semibold, color: colors.text },
-  alertMessage: { fontSize: fontSize.sm, color: colors.textSecondary, marginTop: spacing.xs },
-  alertActions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
-  alertActionBtn: { paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.border },
-  alertActionText: { fontSize: fontSize.xs, color: colors.primary, fontWeight: fontWeight.semibold },
-  empty: { fontSize: fontSize.sm, color: colors.textTertiary, textAlign: 'center', padding: spacing.xl },
-});

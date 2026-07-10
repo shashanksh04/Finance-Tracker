@@ -1,7 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { copilotApi } from '../services/api';
-import { colors, spacing, radius, fontSize, fontWeight } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
+import { spacing, radius, fontSize, fontWeight } from '../theme/tokens';
 
 interface Message {
   id: string;
@@ -19,6 +20,32 @@ const SUGGESTIONS = [
 ];
 
 export default function CopilotScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
+  msgList: { padding: spacing.lg, paddingBottom: spacing.sm },
+  msgRow: { flexDirection: 'row', marginBottom: spacing.md, maxWidth: '85%' },
+  userRow: { alignSelf: 'flex-end' },
+  assistantRow: { alignSelf: 'flex-start' },
+  avatar: { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.primaryLight, justifyContent: 'center', alignItems: 'center', marginRight: spacing.sm, marginTop: spacing.xs },
+  avatarText: { fontSize: 14 },
+  bubble: { padding: spacing.md, borderRadius: radius.lg, maxWidth: '100%' },
+  userBubble: { backgroundColor: colors.primary, borderBottomRightRadius: radius.xs },
+  assistantBubble: { backgroundColor: colors.surface, borderBottomLeftRadius: radius.xs, borderWidth: 1, borderColor: colors.border },
+  msgText: { fontSize: fontSize.base, color: colors.text, lineHeight: 22 },
+  msgTime: { fontSize: fontSize.xs, marginTop: spacing.xs, textAlign: 'right' },
+  loadingRow: { flexDirection: 'row', alignItems: 'center', padding: spacing.md, alignSelf: 'flex-start' },
+  loadingText: { marginLeft: spacing.sm, fontSize: fontSize.sm, color: colors.textTertiary },
+  suggestions: { padding: spacing.lg, paddingTop: 0 },
+  suggestionsTitle: { fontSize: fontSize.sm, color: colors.slate500, marginBottom: spacing.sm, fontWeight: fontWeight.medium },
+  suggestionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  suggestionChip: { backgroundColor: colors.surface, paddingHorizontal: spacing.lg - 2, paddingVertical: spacing.sm, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border },
+  suggestionText: { fontSize: fontSize.sm, color: colors.primary },
+  inputBar: { flexDirection: 'row', padding: spacing.md, backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border, alignItems: 'flex-end' },
+  input: { flex: 1, backgroundColor: colors.background, borderRadius: radius.xl, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm + 2, fontSize: fontSize.base, maxHeight: 80, color: colors.text, borderWidth: 1, borderColor: colors.border },
+  sendBtn: { marginLeft: spacing.sm, backgroundColor: colors.primary, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm + 2, borderRadius: radius.xl },
+  sendText: { color: colors.textInverse, fontWeight: fontWeight.semibold, fontSize: fontSize.sm + 1 },
+}), [colors, spacing, radius, fontSize, fontWeight]);
   const [messages, setMessages] = useState<Message[]>([
     { id: '0', role: 'assistant', content: 'Hi! I\'m your financial copilot. Ask me anything about your finances, or try one of the suggestions below.', timestamp: new Date() },
   ]);
@@ -97,28 +124,3 @@ export default function CopilotScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  msgList: { padding: spacing.lg, paddingBottom: spacing.sm },
-  msgRow: { flexDirection: 'row', marginBottom: spacing.md, maxWidth: '85%' },
-  userRow: { alignSelf: 'flex-end' },
-  assistantRow: { alignSelf: 'flex-start' },
-  avatar: { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.primaryLight, justifyContent: 'center', alignItems: 'center', marginRight: spacing.sm, marginTop: spacing.xs },
-  avatarText: { fontSize: 14 },
-  bubble: { padding: spacing.md, borderRadius: radius.lg, maxWidth: '100%' },
-  userBubble: { backgroundColor: colors.primary, borderBottomRightRadius: radius.xs },
-  assistantBubble: { backgroundColor: colors.surface, borderBottomLeftRadius: radius.xs, borderWidth: 1, borderColor: colors.border },
-  msgText: { fontSize: fontSize.base, color: colors.text, lineHeight: 22 },
-  msgTime: { fontSize: fontSize.xs, marginTop: spacing.xs, textAlign: 'right' },
-  loadingRow: { flexDirection: 'row', alignItems: 'center', padding: spacing.md, alignSelf: 'flex-start' },
-  loadingText: { marginLeft: spacing.sm, fontSize: fontSize.sm, color: colors.textTertiary },
-  suggestions: { padding: spacing.lg, paddingTop: 0 },
-  suggestionsTitle: { fontSize: fontSize.sm, color: colors.slate500, marginBottom: spacing.sm, fontWeight: fontWeight.medium },
-  suggestionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  suggestionChip: { backgroundColor: colors.surface, paddingHorizontal: spacing.lg - 2, paddingVertical: spacing.sm, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border },
-  suggestionText: { fontSize: fontSize.sm, color: colors.primary },
-  inputBar: { flexDirection: 'row', padding: spacing.md, backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border, alignItems: 'flex-end' },
-  input: { flex: 1, backgroundColor: colors.background, borderRadius: radius.xl, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm + 2, fontSize: fontSize.base, maxHeight: 80, color: colors.text, borderWidth: 1, borderColor: colors.border },
-  sendBtn: { marginLeft: spacing.sm, backgroundColor: colors.primary, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm + 2, borderRadius: radius.xl },
-  sendText: { color: colors.textInverse, fontWeight: fontWeight.semibold, fontSize: fontSize.sm + 1 },
-});

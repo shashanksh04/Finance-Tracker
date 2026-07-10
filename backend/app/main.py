@@ -12,6 +12,16 @@ app = FastAPI(title=settings.APP_NAME, version=settings.VERSION)
 app.state.limiter = auth.limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+
+@app.on_event("startup")
+async def startup():
+    try:
+        import asyncio, threading
+        from app.services.ocr_service import OCRService
+        threading.Thread(target=OCRService.warmup, daemon=True).start()
+    except Exception:
+        pass
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,

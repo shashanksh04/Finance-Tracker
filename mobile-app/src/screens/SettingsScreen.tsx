@@ -1,14 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Switch } from 'react-native';
 import { useAuthStore } from '../stores/authStore';
 import { usePreferencesStore } from '../stores/preferencesStore';
 import { setBiometricEnabled } from '../components/BiometricGate';
 import Modal from '../components/ui/Modal';
-import { colors, spacing, radius, fontSize, fontWeight, shadow } from '../theme/tokens';
+import { spacing, radius, fontSize, fontWeight, shadow } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
 
 const CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD', 'SGD', 'CHF', 'CNY'];
 
 export default function SettingsScreen() {
+  const { colors, isDark, setDark } = useTheme();
   const { user } = useAuthStore();
   const { prefs, update } = usePreferencesStore();
   const [showProfile, setShowProfile] = useState(false);
@@ -39,6 +41,27 @@ export default function SettingsScreen() {
     } catch (e: any) { Alert.alert('Error', e.response?.data?.detail || 'Change failed'); }
   };
 
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    section: { backgroundColor: colors.card, marginTop: spacing.md, marginHorizontal: spacing.md, borderRadius: radius.md, overflow: 'hidden', ...shadow.sm },
+    sectionTitle: { fontSize: fontSize.xs, fontWeight: fontWeight.semibold, color: colors.textTertiary, textTransform: 'uppercase', padding: spacing.lg, paddingBottom: spacing.sm, letterSpacing: 0.5 },
+    row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: spacing.lg, borderTopWidth: 1, borderTopColor: colors.border },
+    rowLabel: { fontSize: fontSize.base, color: colors.text },
+    rowValue: { fontSize: fontSize.sm, color: colors.textTertiary },
+    rowArrow: { fontSize: 22, color: colors.textTertiary },
+    logoutBtn: { margin: spacing.md, marginTop: spacing.xxl, padding: spacing.lg, borderRadius: radius.md, backgroundColor: colors.card, alignItems: 'center', borderWidth: 1, borderColor: colors.dangerLight },
+    logoutText: { fontSize: fontSize.base, fontWeight: fontWeight.semibold, color: colors.danger },
+    formContainer: { padding: spacing.xl },
+    fieldLabel: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textSecondary, marginBottom: spacing.sm },
+    input: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: spacing.md, fontSize: fontSize.base, color: colors.text, backgroundColor: colors.background },
+    saveBtn: { backgroundColor: colors.primary, padding: spacing.lg, borderRadius: radius.sm, alignItems: 'center', marginTop: spacing.lg },
+    saveBtnText: { color: colors.textInverse, fontSize: fontSize.base, fontWeight: fontWeight.semibold },
+    currencyRow: { flexDirection: 'row', justifyContent: 'space-between', padding: spacing.lg, borderBottomWidth: 1, borderBottomColor: colors.border },
+    currencyActive: { backgroundColor: colors.primaryLight },
+    currencyText: { fontSize: fontSize.base, color: colors.text },
+    checkmark: { fontSize: 18, color: colors.primary, fontWeight: fontWeight.bold },
+  }), [colors, spacing, radius, fontSize, fontWeight]);
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.section}>
@@ -65,11 +88,7 @@ export default function SettingsScreen() {
         </View>
         <View style={styles.row}>
           <Text style={styles.rowLabel}>Dark Mode</Text>
-          <Switch value={prefs.darkMode} onValueChange={(v) => update({ darkMode: v })} trackColor={{ false: colors.border, true: colors.primaryLight }} thumbColor={prefs.darkMode ? colors.primary : colors.textTertiary} accessibilityLabel="Dark Mode" />
-        </View>
-        <View style={styles.row}>
-          <Text style={styles.rowLabel}>Auto Dark Mode</Text>
-          <Switch value={prefs.darkModeAutoSchedule} onValueChange={(v) => update({ darkModeAutoSchedule: v })} trackColor={{ false: colors.border, true: colors.primaryLight }} thumbColor={prefs.darkModeAutoSchedule ? colors.primary : colors.textTertiary} accessibilityLabel="Auto Dark Mode" />
+          <Switch value={isDark} onValueChange={(v) => { setDark(v); update({ darkMode: v }); }} trackColor={{ false: colors.border, true: colors.primaryLight }} thumbColor={isDark ? colors.primary : colors.textTertiary} accessibilityLabel="Dark Mode" />
         </View>
         <View style={styles.row}>
           <Text style={styles.rowLabel}>Notifications</Text>
@@ -127,23 +146,3 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  section: { backgroundColor: colors.card, marginTop: spacing.md, marginHorizontal: spacing.md, borderRadius: radius.md, overflow: 'hidden', ...shadow.sm },
-  sectionTitle: { fontSize: fontSize.xs, fontWeight: fontWeight.semibold, color: colors.textTertiary, textTransform: 'uppercase', padding: spacing.lg, paddingBottom: spacing.sm, letterSpacing: 0.5 },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: spacing.lg, borderTopWidth: 1, borderTopColor: colors.border },
-  rowLabel: { fontSize: fontSize.base, color: colors.text },
-  rowValue: { fontSize: fontSize.sm, color: colors.textTertiary },
-  rowArrow: { fontSize: 22, color: colors.textTertiary },
-  logoutBtn: { margin: spacing.md, marginTop: spacing.xxl, padding: spacing.lg, borderRadius: radius.md, backgroundColor: colors.card, alignItems: 'center', borderWidth: 1, borderColor: colors.dangerLight },
-  logoutText: { fontSize: fontSize.base, fontWeight: fontWeight.semibold, color: colors.danger },
-  formContainer: { padding: spacing.xl },
-  fieldLabel: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textSecondary, marginBottom: spacing.sm },
-  input: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: spacing.md, fontSize: fontSize.base, color: colors.text, backgroundColor: colors.background },
-  saveBtn: { backgroundColor: colors.primary, padding: spacing.lg, borderRadius: radius.sm, alignItems: 'center', marginTop: spacing.lg },
-  saveBtnText: { color: colors.textInverse, fontSize: fontSize.base, fontWeight: fontWeight.semibold },
-  currencyRow: { flexDirection: 'row', justifyContent: 'space-between', padding: spacing.lg, borderBottomWidth: 1, borderBottomColor: colors.border },
-  currencyActive: { backgroundColor: colors.primaryLight },
-  currencyText: { fontSize: fontSize.base, color: colors.text },
-  checkmark: { fontSize: 18, color: colors.primary, fontWeight: fontWeight.bold },
-});

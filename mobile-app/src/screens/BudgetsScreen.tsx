@@ -13,9 +13,11 @@ import Modal from '../components/ui/Modal';
 import EmptyState from '../components/ui/EmptyState';
 import { formatCurrency } from '../utils/format';
 import type { Budget, Category } from '../types';
-import { colors, spacing, radius, fontSize, fontWeight, shadow } from '../theme/tokens';
+import { spacing, radius, fontSize, fontWeight, shadow } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
 
 export default function BudgetsScreen() {
+  const { colors } = useTheme();
   const { success: hapticSuccess, light: hapticLight, heavy: hapticHeavy } = useHaptics();
   const { data: budgets, loading, refreshing, refresh, refreshFromApi } = useOfflineList<Budget>(TABLES.BUDGETS, {
     orderBy: 'created_at DESC',
@@ -70,6 +72,37 @@ export default function BudgetsScreen() {
       { text: 'Delete', style: 'destructive', onPress: async () => { await budgetsApi.delete(id); await repository.delete(TABLES.BUDGETS, id); hapticHeavy(); refresh(); } },
     ]);
   };
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    card: { backgroundColor: colors.card, margin: spacing.md, marginBottom: 0, padding: spacing.lg, borderRadius: radius.md, ...shadow.sm },
+    cardHeader: { marginBottom: spacing.md },
+    cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.xs },
+    cardName: { fontSize: fontSize.base, fontWeight: fontWeight.semibold, color: colors.text },
+    categoryBadge: { paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: radius.sm },
+    categoryBadgeText: { fontSize: fontSize.xs, fontWeight: fontWeight.semibold },
+    cardAmount: { fontSize: fontSize.sm, color: colors.textSecondary, fontWeight: fontWeight.medium },
+    progressBg: { height: 10, backgroundColor: colors.border, borderRadius: radius.sm, overflow: 'hidden' },
+    progressFill: { height: '100%', borderRadius: radius.sm },
+    cardFooter: { flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.sm },
+    progressText: { fontSize: fontSize.xs, fontWeight: fontWeight.semibold },
+    periodLabel: { fontSize: fontSize.xs, color: colors.textTertiary, textTransform: 'capitalize' },
+    fab: { position: 'absolute', bottom: 20, right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', elevation: 4 },
+    fabText: { fontSize: 28, color: colors.textInverse, fontWeight: fontWeight.regular, marginTop: -2 },
+    form: { padding: spacing.xl },
+    label: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textSecondary, marginBottom: spacing.sm, marginTop: spacing.xs },
+    input: { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: spacing.md, fontSize: fontSize.base, color: colors.text, marginBottom: spacing.sm },
+    periodRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
+    periodBtn: { flex: 1, padding: spacing.sm, borderRadius: radius.sm, alignItems: 'center', backgroundColor: colors.border, borderWidth: 1, borderColor: colors.border },
+    periodBtnText: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textSecondary },
+    choiceChip: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, marginRight: spacing.sm, marginBottom: spacing.sm },
+    choiceChipText: { fontSize: fontSize.sm, color: colors.textSecondary },
+    formActions: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.lg },
+    saveBtn: { flex: 1, backgroundColor: colors.primary, padding: spacing.lg, borderRadius: radius.md, alignItems: 'center' },
+    saveBtnText: { color: colors.textInverse, fontSize: fontSize.base, fontWeight: fontWeight.semibold },
+    deleteBtn: { padding: spacing.lg, borderRadius: radius.md, borderWidth: 1, borderColor: colors.dangerLight },
+    deleteBtnText: { color: colors.danger, fontWeight: fontWeight.semibold },
+  }), [colors, spacing, radius, fontSize, fontWeight]);
 
   if (loading) return <CardSkeleton />;
 
@@ -141,33 +174,3 @@ export default function BudgetsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  card: { backgroundColor: colors.card, margin: spacing.md, marginBottom: 0, padding: spacing.lg, borderRadius: radius.md, ...shadow.sm },
-  cardHeader: { marginBottom: spacing.md },
-  cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.xs },
-  cardName: { fontSize: fontSize.base, fontWeight: fontWeight.semibold, color: colors.text },
-  categoryBadge: { paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: radius.sm },
-  categoryBadgeText: { fontSize: fontSize.xs, fontWeight: fontWeight.semibold },
-  cardAmount: { fontSize: fontSize.sm, color: colors.textSecondary, fontWeight: fontWeight.medium },
-  progressBg: { height: 10, backgroundColor: colors.border, borderRadius: radius.sm, overflow: 'hidden' },
-  progressFill: { height: '100%', borderRadius: radius.sm },
-  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.sm },
-  progressText: { fontSize: fontSize.xs, fontWeight: fontWeight.semibold },
-  periodLabel: { fontSize: fontSize.xs, color: colors.textTertiary, textTransform: 'capitalize' },
-  fab: { position: 'absolute', bottom: 20, right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', elevation: 4 },
-  fabText: { fontSize: 28, color: colors.textInverse, fontWeight: fontWeight.regular, marginTop: -2 },
-  form: { padding: spacing.xl },
-  label: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textSecondary, marginBottom: spacing.sm, marginTop: spacing.xs },
-  input: { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: spacing.md, fontSize: fontSize.base, color: colors.text, marginBottom: spacing.sm },
-  periodRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
-  periodBtn: { flex: 1, padding: spacing.sm, borderRadius: radius.sm, alignItems: 'center', backgroundColor: colors.border, borderWidth: 1, borderColor: colors.border },
-  periodBtnText: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textSecondary },
-  choiceChip: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, marginRight: spacing.sm, marginBottom: spacing.sm },
-  choiceChipText: { fontSize: fontSize.sm, color: colors.textSecondary },
-  formActions: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.lg },
-  saveBtn: { flex: 1, backgroundColor: colors.primary, padding: spacing.lg, borderRadius: radius.md, alignItems: 'center' },
-  saveBtnText: { color: colors.textInverse, fontSize: fontSize.base, fontWeight: fontWeight.semibold },
-  deleteBtn: { padding: spacing.lg, borderRadius: radius.md, borderWidth: 1, borderColor: colors.dangerLight },
-  deleteBtnText: { color: colors.danger, fontWeight: fontWeight.semibold },
-});

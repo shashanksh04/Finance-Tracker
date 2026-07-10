@@ -92,6 +92,12 @@ def create_tools(db, user_id: str, user) -> list:
         return json.dumps(result, default=str)
 
     @tool
+    async def get_goal_spending_impact() -> str:
+        """Analyze how current spending affects each financial goal. Returns suggested monthly contribution vs actual monthly surplus/deficit and flags goals at risk."""
+        result = await finance_tools.get_goal_spending_impact(db=_db, user_id=_uid, user=_user)
+        return json.dumps(result, default=str)
+
+    @tool
     async def get_accounts() -> str:
         """List all non-archived accounts with their types, balances, and currencies. Returns account names, types, and current balances."""
         result = await finance_tools.get_accounts(db=_db, user_id=_uid, user=_user)
@@ -105,4 +111,4 @@ def create_tools(db, user_id: str, user) -> list:
 
     return [get_spending_by_category, get_budget_health, get_recent_transactions,
             get_upcoming_bills, compare_periods, get_goal_progress,
-            get_accounts, get_income_summary]
+            get_goal_spending_impact, get_accounts, get_income_summary]

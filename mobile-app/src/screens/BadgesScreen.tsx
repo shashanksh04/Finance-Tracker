@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet, RefreshControl } from 'react-native';
-import { colors, spacing, radius, fontSize, fontWeight, shadow } from '../theme/tokens';
+import { spacing, radius, fontSize, fontWeight, shadow } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
 import { BADGES, getUnlockedBadges, getProgress } from '../data/badges';
 import { useOfflineList, useOfflineItem } from '../hooks/useOfflineData';
 import { useHaptics } from '../hooks/useHaptics';
@@ -8,8 +9,40 @@ import { CardSkeleton } from '../components/ui/SkeletonLoader';
 import Confetti from '../components/Confetti';
 
 export default function BadgesScreen() {
+  const { colors } = useTheme();
   const { success: hapticSuccess } = useHaptics();
   const { data: summary } = useOfflineItem('dashboard_summary', 'current');
+  const styles = useMemo(() => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
+  content: { padding: spacing.md, paddingBottom: 40 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: spacing.sm },
+  title: { fontSize: fontSize.xl, fontWeight: fontWeight.bold, color: colors.text },
+  subtitle: { fontSize: fontSize.sm, color: colors.textSecondary },
+  progressBar: { height: 8, backgroundColor: colors.tagBg, borderRadius: radius.full, marginBottom: spacing.lg, overflow: 'hidden' },
+  progressFill: { height: '100%', backgroundColor: colors.primary, borderRadius: radius.full },
+  sectionTitle: { fontSize: fontSize.lg, fontWeight: fontWeight.semibold, color: colors.text, marginBottom: spacing.sm, marginTop: spacing.sm },
+  badgeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    ...shadow.sm,
+  },
+  lockedCard: { opacity: 0.7 },
+  badgeIcon: { fontSize: 32, marginRight: spacing.md },
+  badgeInfo: { flex: 1 },
+  badgeName: { fontSize: fontSize.md, fontWeight: fontWeight.semibold, color: colors.text },
+  lockedText: { color: colors.textSecondary },
+  badgeDesc: { fontSize: fontSize.sm, color: colors.textSecondary, marginTop: 2 },
+  progressMini: { height: 4, backgroundColor: colors.tagBg, borderRadius: radius.full, marginTop: spacing.xs, overflow: 'hidden' },
+  progressMiniFill: { height: '100%', backgroundColor: colors.primary, borderRadius: radius.full },
+  emptyCard: { alignItems: 'center', padding: spacing.xl, backgroundColor: colors.card, borderRadius: radius.lg, marginBottom: spacing.sm },
+  emptyIcon: { fontSize: 48, marginBottom: spacing.sm },
+  emptyText: { fontSize: fontSize.lg, fontWeight: fontWeight.semibold, color: colors.text },
+  emptyHint: { fontSize: fontSize.sm, color: colors.textSecondary, marginTop: spacing.xs },
+}), [colors, spacing, radius, fontSize, fontWeight]);
 
   if (loading) return <CardSkeleton />;
 
@@ -73,35 +106,3 @@ export default function BadgesScreen() {
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.md, paddingBottom: 40 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: spacing.sm },
-  title: { fontSize: fontSize.xl, fontWeight: fontWeight.bold, color: colors.text },
-  subtitle: { fontSize: fontSize.sm, color: colors.textSecondary },
-  progressBar: { height: 8, backgroundColor: colors.tagBg, borderRadius: radius.full, marginBottom: spacing.lg, overflow: 'hidden' },
-  progressFill: { height: '100%', backgroundColor: colors.primary, borderRadius: radius.full },
-  sectionTitle: { fontSize: fontSize.lg, fontWeight: fontWeight.semibold, color: colors.text, marginBottom: spacing.sm, marginTop: spacing.sm },
-  badgeCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.card,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    ...shadow.sm,
-  },
-  lockedCard: { opacity: 0.7 },
-  badgeIcon: { fontSize: 32, marginRight: spacing.md },
-  badgeInfo: { flex: 1 },
-  badgeName: { fontSize: fontSize.md, fontWeight: fontWeight.semibold, color: colors.text },
-  lockedText: { color: colors.textSecondary },
-  badgeDesc: { fontSize: fontSize.sm, color: colors.textSecondary, marginTop: 2 },
-  progressMini: { height: 4, backgroundColor: colors.tagBg, borderRadius: radius.full, marginTop: spacing.xs, overflow: 'hidden' },
-  progressMiniFill: { height: '100%', backgroundColor: colors.primary, borderRadius: radius.full },
-  emptyCard: { alignItems: 'center', padding: spacing.xl, backgroundColor: colors.card, borderRadius: radius.lg, marginBottom: spacing.sm },
-  emptyIcon: { fontSize: 48, marginBottom: spacing.sm },
-  emptyText: { fontSize: fontSize.lg, fontWeight: fontWeight.semibold, color: colors.text },
-  emptyHint: { fontSize: fontSize.sm, color: colors.textSecondary, marginTop: spacing.xs },
-});

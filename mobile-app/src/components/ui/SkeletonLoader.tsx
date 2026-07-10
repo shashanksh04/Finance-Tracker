@@ -1,6 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import { View, Animated, StyleSheet } from 'react-native';
-import { colors, radius } from '../../theme/tokens';
+import { radius } from '../../theme/tokens';
+import { useTheme } from '../../theme/ThemeContext';
 
 interface SkeletonLoaderProps {
   width?: number | string;
@@ -10,6 +11,7 @@ interface SkeletonLoaderProps {
 }
 
 export default function SkeletonLoader({ width = '100%', height = 20, borderRadius = radius.sm, style }: SkeletonLoaderProps) {
+  const { colors } = useTheme();
   const opacity = useRef(new Animated.Value(0.3)).current;
 
   useEffect(() => {
@@ -31,6 +33,9 @@ export default function SkeletonLoader({ width = '100%', height = 20, borderRadi
 }
 
 export function DashboardSkeleton() {
+  const styles = useMemo(() => StyleSheet.create({
+  section: { padding: 12 },
+}), []);
   return (
     <View style={styles.section}>
       <SkeletonLoader height={80} borderRadius={16} style={{ marginBottom: 12 }} />
@@ -48,6 +53,9 @@ export function DashboardSkeleton() {
 }
 
 export function ListSkeleton({ count = 5 }: { count?: number }) {
+  const styles = useMemo(() => StyleSheet.create({
+  section: { padding: 12 },
+}), []);
   return (
     <View style={styles.section}>
       {Array.from({ length: count }).map((_, i) => (
@@ -58,6 +66,9 @@ export function ListSkeleton({ count = 5 }: { count?: number }) {
 }
 
 export function CardSkeleton({ count = 3 }: { count?: number }) {
+  const styles = useMemo(() => StyleSheet.create({
+  section: { padding: 12 },
+}), []);
   return (
     <View style={styles.section}>
       {Array.from({ length: count }).map((_, i) => (
@@ -67,6 +78,4 @@ export function CardSkeleton({ count = 3 }: { count?: number }) {
   );
 }
 
-const styles = StyleSheet.create({
-  section: { padding: 12 },
-});
+

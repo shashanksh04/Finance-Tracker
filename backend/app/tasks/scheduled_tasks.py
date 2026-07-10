@@ -79,3 +79,23 @@ async def _index_unindexed():
         stats = await service.index_unindexed(batch_size=50)
         await db.commit()
         print(f"Indexed {stats['memories']} memories ({stats['errors']} errors)")
+
+
+@celery_app.task
+def detect_goal_spending_conflicts():
+    _run_async(_detect_goal_conflicts())
+
+
+async def _detect_goal_conflicts():
+    from sqlalchemy import select
+    from app.models.user import User
+    from app.services.goal_spending_service import detect_goal_spending_conflicts
+    async with async_session_factory() as db:
+        result = await db.execute(select(User).where(User.is_active == True))
+        users = list(result.scalars().all())
+        total = 0
+        for user in users:
+            alerts = await detect_goal_spending_conflicts(db, user.id)
+            total += len(alerts)
+        await db.commit()
+        print(f"Detected {total} goal-spending conflicts for {len(users)} users")

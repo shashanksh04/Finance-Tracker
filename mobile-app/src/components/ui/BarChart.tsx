@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { colors, spacing, radius, fontSize, fontWeight } from '../../theme/tokens';
+import { spacing, radius, fontSize, fontWeight } from '../../theme/tokens';
+import { useTheme } from '../../theme/ThemeContext';
 
 interface BarItem {
   label: string;
@@ -21,6 +22,26 @@ export default function BarChart({
   data, maxValue, height = 180, showValues = true, showLabels = true,
   formatValue = (v) => v.toLocaleString(),
 }: BarChartProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => StyleSheet.create({
+  container: { paddingVertical: spacing.sm },
+  bars: { flex: 1, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-around', gap: spacing.xs },
+  column: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
+  value: { fontSize: fontSize.xs, fontWeight: fontWeight.semibold, marginBottom: spacing.xs },
+  barTrack: {
+    width: '70%',
+    backgroundColor: colors.border,
+    borderRadius: radius.sm,
+    overflow: 'hidden',
+    justifyContent: 'flex-end',
+  },
+  barFill: {
+    width: '100%',
+    borderRadius: radius.sm,
+    minHeight: 4,
+  },
+  label: { fontSize: fontSize.xs, color: colors.textTertiary, marginTop: spacing.xs, textAlign: 'center' },
+}), [colors, spacing, radius, fontSize, fontWeight]);
   const max = maxValue ?? Math.max(...data.map((d) => d.value), 1);
   const barH = height - (showValues ? 24 : 0);
 
@@ -60,22 +81,4 @@ export default function BarChart({
   );
 }
 
-const styles = StyleSheet.create({
-  container: { paddingVertical: spacing.sm },
-  bars: { flex: 1, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-around', gap: spacing.xs },
-  column: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
-  value: { fontSize: fontSize.xs, fontWeight: fontWeight.semibold, marginBottom: spacing.xs },
-  barTrack: {
-    width: '70%',
-    backgroundColor: colors.border,
-    borderRadius: radius.sm,
-    overflow: 'hidden',
-    justifyContent: 'flex-end',
-  },
-  barFill: {
-    width: '100%',
-    borderRadius: radius.sm,
-    minHeight: 4,
-  },
-  label: { fontSize: fontSize.xs, color: colors.textTertiary, marginTop: spacing.xs, textAlign: 'center' },
-});
+

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   RefreshControl, ActivityIndicator, TextInput, Alert, Switch,
@@ -13,9 +13,11 @@ import Modal from '../components/ui/Modal';
 import EmptyState from '../components/ui/EmptyState';
 import { formatCurrency, formatDate, daysUntil } from '../utils/format';
 import type { Bill } from '../types';
-import { colors, spacing, radius, fontSize, fontWeight, shadow } from '../theme/tokens';
+import { spacing, radius, fontSize, fontWeight, shadow } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
 
 export default function BillsScreen() {
+  const { colors } = useTheme();
   const { success: hapticSuccess, light: hapticLight, heavy: hapticHeavy } = useHaptics();
   const { data: bills, loading, refreshing, refresh, refreshFromApi } = useOfflineList<Bill>(TABLES.BILLS, {
     orderBy: 'due_date ASC',
@@ -73,6 +75,33 @@ export default function BillsScreen() {
       hapticSuccess(); refresh();
     } catch { Alert.alert('Error', 'Failed to toggle bill status.'); }
   };
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    card: { backgroundColor: colors.card, margin: spacing.md, marginBottom: 0, padding: spacing.lg, borderRadius: radius.md, ...shadow.sm },
+    cardRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+    cardInfo: { flex: 1 },
+    cardName: { fontSize: fontSize.base, fontWeight: fontWeight.semibold, color: colors.text },
+    cardMeta: { fontSize: fontSize.xs, color: colors.textTertiary, marginTop: 2 },
+    cardAmount: { fontSize: fontSize.lg, fontWeight: fontWeight.bold, minWidth: 80, textAlign: 'right' },
+    cardActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.sm },
+    dueBadge: { paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: radius.sm },
+    dueText: { fontSize: fontSize.xs, fontWeight: fontWeight.semibold },
+    editLink: { fontSize: fontSize.sm, color: colors.primary, fontWeight: fontWeight.medium },
+    fab: { position: 'absolute', bottom: 20, right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', elevation: 4 },
+    fabText: { fontSize: 28, color: colors.textInverse, fontWeight: fontWeight.regular, marginTop: -2 },
+    form: { padding: spacing.xl },
+    label: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textSecondary, marginBottom: spacing.sm, marginTop: spacing.xs },
+    input: { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: spacing.md, fontSize: fontSize.base, color: colors.text, marginBottom: spacing.sm },
+    periodRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
+    periodBtn: { flex: 1, padding: spacing.sm, borderRadius: radius.sm, alignItems: 'center', backgroundColor: colors.border },
+    periodBtnText: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textSecondary, textTransform: 'capitalize' },
+    formActions: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.lg },
+    saveBtn: { flex: 1, backgroundColor: colors.primary, padding: spacing.lg, borderRadius: radius.md, alignItems: 'center' },
+    saveBtnText: { color: colors.textInverse, fontSize: fontSize.base, fontWeight: fontWeight.semibold },
+    deleteBtn: { padding: spacing.lg, borderRadius: radius.md, borderWidth: 1, borderColor: colors.dangerLight },
+    deleteBtnText: { color: colors.danger, fontWeight: fontWeight.semibold },
+  }), [colors, spacing, radius, fontSize, fontWeight]);
 
   if (loading) return <CardSkeleton />;
 
@@ -146,29 +175,3 @@ export default function BillsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  card: { backgroundColor: colors.card, margin: spacing.md, marginBottom: 0, padding: spacing.lg, borderRadius: radius.md, ...shadow.sm },
-  cardRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  cardInfo: { flex: 1 },
-  cardName: { fontSize: fontSize.base, fontWeight: fontWeight.semibold, color: colors.text },
-  cardMeta: { fontSize: fontSize.xs, color: colors.textTertiary, marginTop: 2 },
-  cardAmount: { fontSize: fontSize.lg, fontWeight: fontWeight.bold, minWidth: 80, textAlign: 'right' },
-  cardActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.sm },
-  dueBadge: { paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: radius.sm },
-  dueText: { fontSize: fontSize.xs, fontWeight: fontWeight.semibold },
-  editLink: { fontSize: fontSize.sm, color: colors.primary, fontWeight: fontWeight.medium },
-  fab: { position: 'absolute', bottom: 20, right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', elevation: 4 },
-  fabText: { fontSize: 28, color: colors.textInverse, fontWeight: fontWeight.regular, marginTop: -2 },
-  form: { padding: spacing.xl },
-  label: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textSecondary, marginBottom: spacing.sm, marginTop: spacing.xs },
-  input: { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: spacing.md, fontSize: fontSize.base, color: colors.text, marginBottom: spacing.sm },
-  periodRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
-  periodBtn: { flex: 1, padding: spacing.sm, borderRadius: radius.sm, alignItems: 'center', backgroundColor: colors.border },
-  periodBtnText: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textSecondary, textTransform: 'capitalize' },
-  formActions: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.lg },
-  saveBtn: { flex: 1, backgroundColor: colors.primary, padding: spacing.lg, borderRadius: radius.md, alignItems: 'center' },
-  saveBtnText: { color: colors.textInverse, fontSize: fontSize.base, fontWeight: fontWeight.semibold },
-  deleteBtn: { padding: spacing.lg, borderRadius: radius.md, borderWidth: 1, borderColor: colors.dangerLight },
-  deleteBtnText: { color: colors.danger, fontWeight: fontWeight.semibold },
-});

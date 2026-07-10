@@ -6,6 +6,7 @@ from app.copilot.tools.finance_tools import (
     get_upcoming_bills,
     compare_periods,
     get_goal_progress,
+    get_goal_spending_impact,
     get_accounts,
     get_income_summary,
 )
@@ -145,6 +146,20 @@ FINANCE_TOOLS: dict[str, dict[str, Any]] = {
                             "description": "Filter goals by status",
                         },
                     },
+                },
+            },
+        },
+    },
+    "get_goal_spending_impact": {
+        "function": get_goal_spending_impact,
+        "schema": {
+            "type": "function",
+            "function": {
+                "name": "get_goal_spending_impact",
+                "description": "Analyze how current spending affects each financial goal. Returns suggested monthly contribution vs actual monthly surplus/deficit and flags goals at risk.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {},
                 },
             },
         },

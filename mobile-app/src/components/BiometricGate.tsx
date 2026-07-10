@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, AppState, ActivityIndicator,
 } from 'react-native';
 import * as LocalAuthentication from 'expo-local-authentication';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { colors, spacing, radius, fontSize, fontWeight } from '../theme/tokens';
+import { spacing, radius, fontSize, fontWeight } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
 
 const BIOMETRIC_ENABLED_KEY = 'biometric_enabled';
 
@@ -22,6 +23,16 @@ interface BiometricGateProps {
 }
 
 export default function BiometricGate({ children }: BiometricGateProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => StyleSheet.create({
+  container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.black, padding: spacing.xxl },
+  lockIcon: { width: 80, height: 80, borderRadius: 40, backgroundColor: colors.tagBg, justifyContent: 'center', alignItems: 'center', marginBottom: spacing.xxl },
+  lockEmoji: { fontSize: 36 },
+  title: { fontSize: fontSize.xxl, fontWeight: fontWeight.bold, color: colors.textInverse, marginBottom: spacing.sm },
+  subtitle: { fontSize: fontSize.base, color: colors.textTertiary, marginBottom: spacing.xxxl },
+  authBtn: { backgroundColor: colors.primary, paddingHorizontal: spacing.xxxl, paddingVertical: spacing.lg, borderRadius: radius.lg },
+  authBtnText: { color: colors.textInverse, fontSize: fontSize.base + 1, fontWeight: fontWeight.semibold },
+}), [colors, spacing, radius, fontSize, fontWeight]);
   const [biometricType, setBiometricType] = useState<number | null>(null);
   const [enabled, setEnabled] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
@@ -106,12 +117,4 @@ export default function BiometricGate({ children }: BiometricGateProps) {
   return <>{children}</>;
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.text, padding: spacing.xxl },
-  lockIcon: { width: 80, height: 80, borderRadius: 40, backgroundColor: colors.tagBg, justifyContent: 'center', alignItems: 'center', marginBottom: spacing.xxl },
-  lockEmoji: { fontSize: 36 },
-  title: { fontSize: fontSize.xxl, fontWeight: fontWeight.bold, color: colors.textInverse, marginBottom: spacing.sm },
-  subtitle: { fontSize: fontSize.base, color: colors.textTertiary, marginBottom: spacing.xxxl },
-  authBtn: { backgroundColor: colors.primary, paddingHorizontal: spacing.xxxl, paddingVertical: spacing.lg, borderRadius: radius.lg },
-  authBtnText: { color: colors.textInverse, fontSize: fontSize.base + 1, fontWeight: fontWeight.semibold },
-});
+

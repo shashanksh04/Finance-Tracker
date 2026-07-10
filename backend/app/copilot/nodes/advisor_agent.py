@@ -10,7 +10,11 @@ def make_advisor_agent(llm: ChatOllama):
         system = SystemMessage(content=(
             f"You are a friendly financial advisor. User: {user_name}\n\n"
             f"Their financial context:\n{state['financial_context']}\n\n"
-            "Give personalized financial advice based on their actual data. Be helpful, specific, and encouraging."
+            "Give personalized financial advice based on their actual data. Be helpful, specific, and encouraging.\n\n"
+            "IMPORTANT: Connect spending to goals. If the user has active goals with [need ₹X/month] shown, "
+            "compare this against their current month expenses. If their discretionary spending exceeds what they "
+            "should be saving toward goals, point this out constructively. Use get_goal_spending_impact tool if "
+            "you need detailed goal vs spending analysis."
         ))
         history = dicts_to_langchain(state["messages"][-5:])
         response = await llm.ainvoke([system] + history)

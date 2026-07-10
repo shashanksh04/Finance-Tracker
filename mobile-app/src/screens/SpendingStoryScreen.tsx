@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
-import { colors, spacing, radius, fontSize, fontWeight, shadow } from '../theme/tokens';
+import { spacing, radius, fontSize, fontWeight, shadow } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
 import { useOfflineList, useOfflineItem } from '../hooks/useOfflineData';
 import { useHaptics } from '../hooks/useHaptics';
 import { CardSkeleton } from '../components/ui/SkeletonLoader';
@@ -13,10 +14,40 @@ type Slide = {
 };
 
 export default function SpendingStoryScreen() {
+  const { colors } = useTheme();
   const { light: hapticLight } = useHaptics();
   const { data: summary, loading, refresh } = useOfflineItem('dashboard_summary', 'current');
   const [currentSlide, setCurrentSlide] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  const styles = useMemo(() => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
+  content: { padding: spacing.md, justifyContent: 'center', flexGrow: 1 },
+  slideCard: {
+    backgroundColor: colors.card,
+    borderRadius: radius.xl,
+    padding: spacing.xl,
+    ...shadow.lg,
+    minHeight: 300,
+    justifyContent: 'center',
+  },
+  slideEmoji: { fontSize: 64, textAlign: 'center', marginBottom: spacing.lg },
+  slideTitle: { fontSize: fontSize.xl, fontWeight: fontWeight.bold, color: colors.text, textAlign: 'center', marginBottom: spacing.lg },
+  lineRow: { flexDirection: 'row', marginBottom: spacing.sm, paddingHorizontal: spacing.md },
+  bullet: { fontSize: fontSize.md, color: colors.primary, marginRight: spacing.sm, lineHeight: 22 },
+  lineText: { fontSize: fontSize.md, color: colors.textSecondary, lineHeight: 22, flex: 1 },
+  navRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: spacing.md,
+    paddingBottom: spacing.lg,
+  },
+  navBtn: { paddingVertical: spacing.sm, paddingHorizontal: spacing.lg, backgroundColor: colors.primary, borderRadius: radius.md },
+  navBtnDisabled: { backgroundColor: colors.tagBg },
+  navBtnText: { fontSize: fontSize.md, fontWeight: fontWeight.semibold, color: '#fff' },
+  navBtnTextDisabled: { color: colors.textSecondary },
+  dots: { fontSize: fontSize.sm, color: colors.textSecondary, letterSpacing: 4 },
+}), [colors, spacing, radius, fontSize, fontWeight]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -127,33 +158,3 @@ export default function SpendingStoryScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.md, justifyContent: 'center', flexGrow: 1 },
-  slideCard: {
-    backgroundColor: colors.card,
-    borderRadius: radius.xl,
-    padding: spacing.xl,
-    ...shadow.lg,
-    minHeight: 300,
-    justifyContent: 'center',
-  },
-  slideEmoji: { fontSize: 64, textAlign: 'center', marginBottom: spacing.lg },
-  slideTitle: { fontSize: fontSize.xl, fontWeight: fontWeight.bold, color: colors.text, textAlign: 'center', marginBottom: spacing.lg },
-  lineRow: { flexDirection: 'row', marginBottom: spacing.sm, paddingHorizontal: spacing.md },
-  bullet: { fontSize: fontSize.md, color: colors.primary, marginRight: spacing.sm, lineHeight: 22 },
-  lineText: { fontSize: fontSize.md, color: colors.textSecondary, lineHeight: 22, flex: 1 },
-  navRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: spacing.md,
-    paddingBottom: spacing.lg,
-  },
-  navBtn: { paddingVertical: spacing.sm, paddingHorizontal: spacing.lg, backgroundColor: colors.primary, borderRadius: radius.md },
-  navBtnDisabled: { backgroundColor: colors.tagBg },
-  navBtnText: { fontSize: fontSize.md, fontWeight: fontWeight.semibold, color: '#fff' },
-  navBtnTextDisabled: { color: colors.textSecondary },
-  dots: { fontSize: fontSize.sm, color: colors.textSecondary, letterSpacing: 4 },
-});

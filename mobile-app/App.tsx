@@ -4,6 +4,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AppState, AppStateStatus, StyleSheet } from 'react-native';
 import AppNavigator from './src/navigation/AppNavigator';
 import BiometricGate from './src/components/BiometricGate';
+import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 import { useNetworkStatus } from './src/hooks/useNetworkStatus';
 import { useSyncStore } from './src/stores/syncStore';
 import { setupNotifications, scheduleAllNotifications } from './src/services/notifications';
@@ -57,16 +58,27 @@ function AppServices() {
   return null;
 }
 
-export default function App() {
+function AppInner() {
+  const { isDark } = useTheme();
   return (
-    <GestureHandlerRootView style={styles.root}>
-      <StatusBar style="auto" />
+    <>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <AppServices />
       <BiometricGate>
         <SyncManager>
           <AppNavigator />
         </SyncManager>
       </BiometricGate>
+    </>
+  );
+}
+
+export default function App() {
+  return (
+    <GestureHandlerRootView style={styles.root}>
+      <ThemeProvider>
+        <AppInner />
+      </ThemeProvider>
     </GestureHandlerRootView>
   );
 }

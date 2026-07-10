@@ -76,7 +76,22 @@ def make_context_builder(db: AsyncSession, user):
             goals = r.scalars().all()
             if not goals:
                 return "No goals."
-            return "\n".join(f"  - {g.name}: {float(g.current_amount):.2f} / {float(g.target_amount):.2f} ({g.status})" for g in goals)
+            lines = ["Goals:"]
+            for g in goals:
+                target = float(g.target_amount)
+                current = float(g.current_amount)
+                remaining = target - current
+                suggested = None
+                if g.deadline:
+                    delta = (g.deadline - today).days
+                    days = max(0, delta)
+                    if days > 0 and remaining > 0:
+                        suggested = round(remaining / days * 30, 2)
+                line = f"  - {g.name}: {current:.2f} / {target:.2f} ({g.status})"
+                if suggested:
+                    line += f" [need ₹{suggested:.2f}/month to meet deadline]"
+                lines.append(line)
+            return "\n".join(lines)
 
         async def _bills():
             r = await db.execute(select(Bill).where(Bill.user_id == user_id, Bill.is_paid == False).order_by(Bill.due_date).limit(10))
