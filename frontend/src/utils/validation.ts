@@ -9,7 +9,12 @@ export type LoginForm = z.infer<typeof loginSchema>;
 export const registerSchema = z.object({
   full_name: z.string().min(1, 'Name is required'),
   email: z.string().email('Please enter a valid email'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  password: z.string()
+    .min(8, 'Password must be at least 8 characters')
+    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+    .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+    .regex(/\d/, 'Password must contain at least one digit')
+    .regex(/[!@#$%^&*(),.?":{}|<>~`_\-=+\[\];'\\|]/, 'Password must contain at least one special character'),
 });
 export type RegisterForm = z.infer<typeof registerSchema>;
 
@@ -95,7 +100,12 @@ export type ProfileForm = z.infer<typeof profileSchema>;
 
 export const passwordSchema = z.object({
   current_password: z.string().min(1, 'Current password is required'),
-  new_password: z.string().min(8, 'New password must be at least 8 characters'),
+  new_password: z.string()
+    .min(8, 'New password must be at least 8 characters')
+    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+    .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+    .regex(/\d/, 'Password must contain at least one digit')
+    .regex(/[!@#$%^&*(),.?":{}|<>~`_\-=+\[\];'\\|]/, 'Password must contain at least one special character'),
   confirm_password: z.string().min(1, 'Please confirm your password'),
 }).refine((d) => d.new_password === d.confirm_password, {
   message: 'Passwords do not match',

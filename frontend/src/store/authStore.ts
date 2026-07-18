@@ -24,12 +24,10 @@ export const useAuthStore = create<AuthState>()(
       login: async (email, password) => {
         const { data } = await authApi.login(email, password);
         set({ tokens: data, isAuthenticated: true });
-        await get().loadUser();
       },
       register: async (email, password, full_name) => {
         const { data } = await authApi.register(email, password, full_name);
         set({ tokens: data, isAuthenticated: true });
-        await get().loadUser();
       },
       logout: async () => {
         try { await authApi.logout(); } catch {}
