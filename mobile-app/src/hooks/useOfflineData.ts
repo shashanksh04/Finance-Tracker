@@ -2,7 +2,9 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { repository } from '../database/repository';
 import { mapRowsToCamelCase, mapRowToCamelCase } from '../database';
 import { stripUnknownFields } from '../database/schema';
+import { pullChanges } from '../database/sync';
 import { useNetworkStatus } from './useNetworkStatus';
+import { useAuthStore } from '../stores/authStore';
 
 interface UseOfflineListOptions {
   orderBy?: string;
@@ -72,6 +74,19 @@ export function useOfflineList<T = any>(
     } catch (err: any) {
       if (!isOffline && mountedRef.current) {
         setError(err.message || 'Failed to refresh');
+        if (err.response?.status === 401) {
+          useAuthStore.getState().logout();
+          return;
+        }
+        try {
+          await pullChanges();
+          await loadFromDb();
+        } catch (e: any) {
+          if (e.response?.status === 401) {
+            useAuthStore.getState().logout();
+            return;
+          }
+        }
       }
     } finally {
       if (mountedRef.current) setRefreshing(false);
@@ -82,7 +97,21 @@ export function useOfflineList<T = any>(
     setLoading(true);
     setError(null);
     await loadFromDb();
-    if (!isOffline) await refreshFromApi();
+    if (!isOffline) {
+      const opts = optionsRef.current;
+      if (opts?.apiFetch) {
+        await refreshFromApi();
+      }
+      try {
+        await pullChanges();
+        await loadFromDb();
+      } catch (e: any) {
+        if (e.response?.status === 401) {
+          useAuthStore.getState().logout();
+          return;
+        }
+      }
+    }
     if (mountedRef.current) setLoading(false);
   }, [isOffline, loadFromDb, refreshFromApi]);
 

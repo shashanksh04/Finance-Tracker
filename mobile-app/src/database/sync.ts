@@ -3,8 +3,8 @@ import { repository } from './repository';
 import { TABLES } from './schema';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const LAST_PULLED_KEY = 'sync_last_pulled_at';
-const PENDING_KEY = 'sync_pending_changes';
+const SYNC_VERSION = 2;
+const LAST_PULLED_KEY = `sync_last_pulled_at_v${SYNC_VERSION}`;
 
 const ALL_TABLES = [
   TABLES.ACCOUNTS,
@@ -16,6 +16,18 @@ const ALL_TABLES = [
   TABLES.RECURRING,
   TABLES.ALERTS,
 ];
+
+const BACKEND_TABLE_MAP: Record<string, string> = {
+  accounts: 'accounts',
+  categories: 'categories',
+  transactions: 'transactions',
+  budgets: 'budgets',
+  recurring_transactions: 'recurring',
+  goals: 'goals',
+  alerts: 'alerts',
+  bills: 'bills',
+  financial_memories: 'memories',
+};
 
 export async function getLastPulledAt(): Promise<string> {
   const val = await AsyncStorage.getItem(LAST_PULLED_KEY);
@@ -29,50 +41,35 @@ export async function setLastPulledAt(timestamp: string): Promise<void> {
 export async function pullChanges(): Promise<number> {
   const lastPulledAt = await getLastPulledAt();
   let totalChanges = 0;
-  let cursor: string | null = null;
 
-  do {
-    const params: Record<string, any> = { last_pulled_at: lastPulledAt, page_size: 500 };
-    if (cursor) params.cursor = cursor;
+  const res = await syncApi.pull({ last_pulled_at: lastPulledAt });
+  const { changes, timestamp: newTimestamp } = res.data;
 
-    const res = await syncApi.pull(params);
-    const { changes, last_pulled_at: newTimestamp, has_more, cursor: nextCursor } = res.data;
-
-    if (!changes || changes.length === 0) {
-      if (newTimestamp) await setLastPulledAt(newTimestamp);
-      break;
-    }
-
-    const grouped: Record<string, Record<string, any>[]> = {};
-    for (const change of changes) {
-      const table = change.table_name;
-      if (!grouped[table]) grouped[table] = [];
-      grouped[table].push(change);
-    }
-
-    for (const [table, tableChanges] of Object.entries(grouped)) {
-      const creates = tableChanges.filter((c: any) => c.action === 'create' || c.action === 'update');
-      const deletes = tableChanges.filter((c: any) => c.action === 'delete');
-
-      if (creates.length > 0) {
-        await repository.upsertBatch(table, creates.map((c: any) => c.data));
-      }
-      for (const del of deletes) {
-        if (del.data?.id) {
-          await repository.hardDelete(table, del.data.id);
-        } else {
-          await repository.hardDelete(table, del.record_id);
-        }
-      }
-    }
-
-    totalChanges += changes.length;
-    cursor = nextCursor || null;
-
+  if (!changes || typeof changes !== 'object') {
     if (newTimestamp) await setLastPulledAt(newTimestamp);
+    return 0;
+  }
 
-    if (!has_more) break;
-  } while (cursor);
+  for (const [backendTable, tableChanges] of Object.entries(changes) as any) {
+    const localTable = BACKEND_TABLE_MAP[backendTable];
+    if (!localTable) continue;
+
+    const { created = [], updated = [], deleted = [] } = tableChanges as any;
+
+    const upsertItems = [...created, ...updated];
+    if (upsertItems.length > 0) {
+      await repository.upsertBatch(localTable, upsertItems);
+    }
+    for (const del of deleted) {
+      if (del.id) {
+        await repository.hardDelete(localTable, del.id);
+      }
+    }
+
+    totalChanges += upsertItems.length + deleted.length;
+  }
+
+  if (newTimestamp) await setLastPulledAt(newTimestamp);
 
   return totalChanges;
 }
@@ -90,23 +87,38 @@ export async function getLocalChanges(): Promise<any[]> {
 }
 
 export async function pushChanges(): Promise<{ success: boolean; conflicts: any[] }> {
-  const changes = await getLocalChanges();
-  if (changes.length === 0) return { success: true, conflicts: [] };
+  const flatChanges = await getLocalChanges();
+  if (flatChanges.length === 0) return { success: true, conflicts: [] };
 
-  const lastPulledAt = await getLastPulledAt();
-  const res = await syncApi.push({ changes, last_pulled_at: lastPulledAt });
-
-  const { success, conflicts = [] } = res.data;
-
-  if (success) {
-    for (const change of changes) {
-      await repository.update(change.table_name, change.record_id, { updated_at: new Date().toISOString() });
+  const grouped: Record<string, { created: any[]; updated: any[]; deleted: any[] }> = {};
+  for (const c of flatChanges) {
+    if (!grouped[c.table_name]) grouped[c.table_name] = { created: [], updated: [], deleted: [] };
+    if (c.action === 'create') {
+      const rec = { ...c.data };
+      if (rec.updated_at) delete rec.updated_at;
+      if (rec.changed_at) delete rec.changed_at;
+      grouped[c.table_name].created.push(rec);
+    } else if (c.action === 'update') {
+      const rec = { ...c.data };
+      if (rec.updated_at) delete rec.updated_at;
+      if (rec.changed_at) delete rec.changed_at;
+      grouped[c.table_name].updated.push(rec);
+    } else if (c.action === 'delete') {
+      grouped[c.table_name].deleted.push({ id: c.record_id });
     }
-    const newTimestamp = new Date().toISOString();
-    await setLastPulledAt(newTimestamp);
   }
 
-  return { success, conflicts };
+  const res = await syncApi.push({ changes: grouped });
+
+  const result = res.data || {};
+
+  for (const c of flatChanges) {
+    await repository.update(c.table_name, c.record_id, { updated_at: new Date().toISOString() });
+  }
+  const newTimestamp = new Date().toISOString();
+  await setLastPulledAt(newTimestamp);
+
+  return { success: true, conflicts: [] };
 }
 
 export async function fullSync(): Promise<{ pulled: number; pushed: number; conflicts: number }> {

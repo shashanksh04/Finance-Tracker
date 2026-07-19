@@ -3,6 +3,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authApi, storeTokens, getStoredTokens } from '../services/api';
 import type { User } from '../types';
 
+const USER_KEY = 'auth_user';
+
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
@@ -23,16 +25,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   login: async (email, password) => {
     const res = await authApi.login({ email, password });
-    const { access_token, refresh_token, user } = res.data;
+    const { access_token, refresh_token } = res.data;
     await storeTokens({ access_token, refresh_token });
-    set({ user, isAuthenticated: true, token: access_token });
+    set({ token: access_token, isAuthenticated: true });
+    const me = await authApi.me();
+    await AsyncStorage.setItem(USER_KEY, JSON.stringify(me.data));
+    set({ user: me.data, isAuthenticated: true, token: access_token });
   },
 
   register: async (email, password, full_name) => {
     const res = await authApi.register({ email, password, full_name });
-    const { access_token, refresh_token, user } = res.data;
+    const { access_token, refresh_token } = res.data;
     await storeTokens({ access_token, refresh_token });
-    set({ user, isAuthenticated: true, token: access_token });
+    set({ token: access_token, isAuthenticated: true });
+    const me = await authApi.me();
+    await AsyncStorage.setItem(USER_KEY, JSON.stringify(me.data));
+    set({ user: me.data, isAuthenticated: true, token: access_token });
   },
 
   logout: async () => {
@@ -41,7 +49,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch {
     } finally {
       await storeTokens(null);
-      await AsyncStorage.removeItem('auth_tokens');
+      await AsyncStorage.multiRemove(['auth_tokens', USER_KEY]);
       set({ user: null, isAuthenticated: false, token: null });
     }
   },
@@ -54,11 +62,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return;
       }
       set({ token: tokens.access_token });
-      const res = await authApi.me();
-      set({ user: res.data, isAuthenticated: true, isLoading: false });
+      try {
+        const res = await authApi.me();
+        await AsyncStorage.setItem(USER_KEY, JSON.stringify(res.data));
+        set({ user: res.data, isAuthenticated: true, isLoading: false });
+      } catch {
+        const cached = await AsyncStorage.getItem(USER_KEY);
+        if (cached) {
+          set({ user: JSON.parse(cached), isAuthenticated: true, isLoading: false });
+        } else {
+          await storeTokens(null);
+          set({ user: null, isAuthenticated: false, isLoading: false, token: null });
+        }
+      }
     } catch {
-      await storeTokens(null);
-      set({ user: null, isAuthenticated: false, isLoading: false, token: null });
+      set({ isLoading: false });
     }
   },
 }));

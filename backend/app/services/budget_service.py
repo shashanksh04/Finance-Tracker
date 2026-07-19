@@ -167,6 +167,7 @@ class BudgetService:
                 cat_color = budget.category.color
             enriched.append({
                 "id": budget.id,
+                "user_id": budget.user_id,
                 "category_id": budget.category_id,
                 "category_name": cat_name,
                 "category_icon": cat_icon,

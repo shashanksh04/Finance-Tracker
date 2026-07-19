@@ -1,5 +1,6 @@
 import { queryAll, queryFirst, executeSql } from './index';
-import { TABLES, stripUnknownFields } from './schema';
+import { TABLES, TABLE_COLUMNS, stripUnknownFields } from './schema';
+import { useAuthStore } from '../stores/authStore';
 
 type WhereClause = { field: string; op?: string; value: any };
 
@@ -43,9 +44,17 @@ export const repository = {
 
   async create(table: string, data: Record<string, any>) {
     const now = new Date().toISOString();
-    const record = stripUnknownFields(table, data);
+    let record = stripUnknownFields(table, data);
     if (!record.created_at) record.created_at = now;
     record.updated_at = data.updated_at || now;
+
+    if (record.user_id === undefined || record.user_id === null) {
+      const allowed = TABLE_COLUMNS[table];
+      if (allowed?.includes('user_id')) {
+        const user = useAuthStore.getState().user;
+        if (user?.id) record.user_id = user.id;
+      }
+    }
 
     const fields = Object.keys(record);
     const placeholders = fields.map(() => '?').join(', ');

@@ -90,6 +90,7 @@ class GoalService:
             cat_name = goal.category.name
         return {
             "id": goal.id,
+            "user_id": goal.user_id,
             "name": goal.name,
             "target_amount": target,
             "current_amount": current,

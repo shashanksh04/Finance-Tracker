@@ -44,9 +44,13 @@ MODEL_MAP = {
 EPOCH = datetime.fromtimestamp(0, tz=timezone.utc)
 
 
+EXCLUDED_COLUMNS = {"embedding_vector"}
+
 def _model_to_dict(obj: Any) -> dict:
     d = {}
     for col in obj.__table__.columns:
+        if col.name in EXCLUDED_COLUMNS:
+            continue
         val = getattr(obj, col.name)
         if isinstance(val, datetime):
             val = val.isoformat()

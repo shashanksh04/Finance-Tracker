@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  View, Text, StyleSheet, FlatList, ScrollView, TouchableOpacity,
   RefreshControl, ActivityIndicator, TextInput, Alert,
 } from 'react-native';
 import { transactionsApi, accountsApi, categoriesApi } from '../services/api';
@@ -10,8 +10,9 @@ import { repository } from '../database/repository';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { TABLES } from '../database/schema';
 import { ListSkeleton } from '../components/ui/SkeletonLoader';
-import Modal from '../components/ui/Modal';
+import AdaptiveSheet from '../components/AdaptiveSheet';
 import EmptyState from '../components/ui/EmptyState';
+import SmartInputSuite from '../components/SmartInputSuite';
 import { formatCurrency, formatTransactionAmount, isIncome } from '../utils/format';
 import type { Transaction, Account, Category, TransactionType } from '../types';
 import { spacing, radius, fontSize, fontWeight, shadow } from '../theme/tokens';
@@ -36,10 +37,9 @@ function formatSectionDate(dateStr: string): string {
   return d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
 }
 
-export default function TransactionsScreen() {
+export default function LedgerScreen() {
   const { colors } = useTheme();
   const { success: hapticSuccess, light: hapticLight, heavy: hapticHeavy } = useHaptics();
-  const { isOffline } = useNetworkStatus();
 
   const { data: transactions, loading, refreshing, refresh, refreshFromApi } = useOfflineList<Transaction>(TABLES.TRANSACTIONS, {
     orderBy: 'date DESC, created_at DESC',
@@ -57,6 +57,7 @@ export default function TransactionsScreen() {
     mapApiResponse: (res) => res.data?.items || res.data || [],
   });
 
+  const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
@@ -68,15 +69,29 @@ export default function TransactionsScreen() {
   const [formDate, setFormDate] = useState(new Date().toISOString().slice(0, 10));
   const [formSaving, setFormSaving] = useState(false);
 
-  const filtered = useMemo(() => {
-    if (!search) return transactions;
-    const q = search.toLowerCase();
-    return transactions.filter((t) =>
-      t.description?.toLowerCase().includes(q) ||
-      t.amount.toString().includes(q) ||
-      t.category_name?.toLowerCase().includes(q)
+  const toggleAccount = (id: string) => {
+    setSelectedAccountIds((prev) =>
+      prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id]
     );
-  }, [transactions, search]);
+  };
+
+  const filtered = useMemo(() => {
+    let result = transactions;
+    if (selectedAccountIds.length > 0) {
+      result = result.filter((t) => {
+        const acctId = (t as any).accountId ?? t.account_id;
+        return acctId && selectedAccountIds.includes(acctId.toString());
+      });
+    }
+    if (search) {
+      const q = search.toLowerCase();
+      result = result.filter((t) =>
+        t.description?.toLowerCase().includes(q) ||
+        t.amount.toString().includes(q)
+      );
+    }
+    return result;
+  }, [transactions, selectedAccountIds, search]);
 
   const grouped = useMemo(() => groupByDate(filtered), [filtered]);
   const dateKeys = useMemo(() => Object.keys(grouped).sort((a, b) => new Date(b).getTime() - new Date(a).getTime()), [grouped]);
@@ -93,6 +108,8 @@ export default function TransactionsScreen() {
     return m;
   }, [categories]);
 
+  const totalBalance = accounts.reduce((sum, a) => sum + a.balance, 0);
+
   const openCreate = (type: TransactionType) => {
     setEditing(null); setFormAmount(''); setFormDescription(''); setFormType(type);
     setFormCategoryId(''); setFormAccountId(accounts[0]?.id || '');
@@ -103,7 +120,7 @@ export default function TransactionsScreen() {
     setEditing(t); setFormAmount(Math.abs(t.amount).toString());
     setFormDescription(t.description || '');
     setFormType(isIncome(t) ? 'income' : 'expense');
-    setFormCategoryId(t.category_id || ''); setFormAccountId(t.account_id || '');
+    setFormCategoryId((t as any).categoryId ?? t.category_id ?? ''); setFormAccountId((t as any).accountId ?? t.account_id ?? '');
     setFormDate(t.date); setShowCreate(true);
   };
 
@@ -137,16 +154,29 @@ export default function TransactionsScreen() {
   };
 
   const styles = useMemo(() => StyleSheet.create({
-    screenTitle: { fontSize: fontSize.xxl, fontWeight: fontWeight.bold, color: colors.text, padding: spacing.lg, paddingBottom: spacing.sm },
     container: { flex: 1, backgroundColor: colors.background },
-    searchContainer: {
-      flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card,
-      margin: spacing.md, paddingHorizontal: spacing.md, borderRadius: radius.md,
-      borderWidth: 1, borderColor: colors.border, gap: spacing.sm,
+    screenTitle: { fontSize: fontSize.xxl, fontWeight: fontWeight.bold, color: colors.text, paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.xs },
+    chipRow: {
+      paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
     },
-    searchIcon: { fontSize: 16 },
-    searchInput: { flex: 1, paddingVertical: spacing.md, fontSize: fontSize.base, color: colors.text },
-    clearSearch: { fontSize: 16, color: colors.textTertiary, padding: spacing.xs },
+    accountChip: {
+      paddingVertical: 6, paddingHorizontal: 12,
+      borderRadius: radius.md, borderWidth: 1, borderColor: colors.border,
+      backgroundColor: colors.card, minWidth: 80,
+    },
+    accountChipActive: { backgroundColor: colors.primaryLight, borderColor: colors.primary },
+    accountChipName: { fontSize: fontSize.sm, fontWeight: fontWeight.medium, color: colors.textSecondary },
+    accountChipBalance: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.text },
+    searchRow: {
+      flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card,
+      marginHorizontal: spacing.md, marginBottom: 2,
+      paddingHorizontal: spacing.md, borderRadius: radius.md,
+      borderWidth: 1, borderColor: colors.border, gap: spacing.sm,
+      height: 34,
+    },
+    searchIcon: { fontSize: 14 },
+    searchInput: { flex: 1, fontSize: fontSize.sm, color: colors.text, paddingVertical: 0 },
+    clearSearch: { fontSize: 14, color: colors.textTertiary, padding: spacing.xs },
     dayGroup: { marginBottom: spacing.sm },
     dayHeader: {
       flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
@@ -167,8 +197,8 @@ export default function TransactionsScreen() {
     trxRight: { alignItems: 'flex-end' },
     trxAmount: { fontSize: fontSize.base, fontWeight: fontWeight.bold },
     fabRow: { position: 'absolute', bottom: 20, right: 16, gap: spacing.sm },
-    fab: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', elevation: 4 },
-    fabIcon: { fontSize: 18 },
+    fab: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', elevation: 4 },
+    fabIcon: { fontSize: 16 },
     form: { padding: spacing.xl, maxHeight: 500 },
     label: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textSecondary, marginBottom: spacing.sm, marginTop: spacing.xs },
     input: { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: spacing.md, fontSize: fontSize.base, color: colors.text, marginBottom: spacing.sm },
@@ -182,62 +212,87 @@ export default function TransactionsScreen() {
     saveBtnText: { color: colors.textInverse, fontSize: fontSize.base, fontWeight: fontWeight.semibold },
     deleteBtn: { padding: spacing.lg, borderRadius: radius.md, borderWidth: 1, borderColor: colors.dangerLight },
     deleteBtnText: { color: colors.danger, fontWeight: fontWeight.semibold },
-  }), [colors, spacing, radius, fontSize, fontWeight]);
+  }), [colors]);
+
+  const renderDaySection = (dateKey: string) => {
+    const dayTxns = grouped[dateKey];
+    const dayTotal = dayTxns.reduce((s, t) => s + t.amount, 0);
+    return (
+      <View key={dateKey} style={styles.dayGroup}>
+        <View style={styles.dayHeader}>
+          <Text style={styles.dayTitle}>{formatSectionDate(dateKey)}</Text>
+          <Text style={[styles.dayTotal, { color: dayTotal >= 0 ? colors.success : colors.danger }]}>
+            {dayTotal >= 0 ? '+' : ''}{formatCurrency(dayTotal)}
+          </Text>
+        </View>
+        {dayTxns.map((t) => {
+          const catId = (t as any).categoryId ?? t.category_id;
+          const acctId = (t as any).accountId ?? t.account_id;
+          const cat = catId ? categoryMap[catId] : undefined;
+          const acct = acctId ? accountMap[acctId] : undefined;
+          return (
+            <TouchableOpacity key={t.id} style={styles.trxRow} onPress={() => openEdit(t)} onLongPress={() => handleDelete(t.id)}>
+              <View style={[styles.trxIcon, { backgroundColor: isIncome(t) ? colors.successLight : colors.dangerLight }]}>
+                <Text style={styles.trxIconText}>{isIncome(t) ? '📥' : '📤'}</Text>
+              </View>
+              <View style={styles.trxInfo}>
+                <Text style={styles.trxDesc}>{t.description || cat?.name || 'Transaction'}</Text>
+                <Text style={styles.trxMeta}>
+                  {cat?.name}{acct ? ` · ${acct.name}` : ''}{t.merchant ? ` · ${t.merchant}` : ''}
+                </Text>
+              </View>
+              <View style={styles.trxRight}>
+                <Text style={[styles.trxAmount, { color: isIncome(t) ? colors.success : colors.danger }]}>
+                  {formatTransactionAmount(t)}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    );
+  };
 
   if (loading) return <ListSkeleton />;
 
   return (
     <View style={styles.container}>
-      <Text style={styles.screenTitle}>Transactions</Text>
-      <View style={styles.searchContainer}>
+      <Text style={styles.screenTitle}>Ledger</Text>
+
+      <View style={styles.chipRow}>
+        <FlatList horizontal showsHorizontalScrollIndicator={false} data={accounts} keyExtractor={(a) => a.id} contentContainerStyle={{ gap: spacing.sm }}
+          renderItem={({ item: a }) => {
+            const active = selectedAccountIds.includes(a.id);
+            return (
+              <TouchableOpacity
+                style={[styles.accountChip, active && styles.accountChipActive]}
+                onPress={() => toggleAccount(a.id)}
+              >
+                    <Text style={[styles.accountChipName, active && { color: colors.primary }]}>{a.name}</Text>
+                <Text style={[styles.accountChipBalance, active && { color: colors.primary }]}>
+                  {formatCurrency(a.balance)}
+                </Text>
+              </TouchableOpacity>
+            );
+          }}
+        />
+      </View>
+
+      <View style={styles.searchRow}>
         <Text style={styles.searchIcon}>🔍</Text>
-        <TextInput style={styles.searchInput} value={search} onChangeText={setSearch} placeholder="Search transactions..." placeholderTextColor={colors.textTertiary} />
+        <TextInput style={styles.searchInput} value={search} onChangeText={setSearch} placeholder="Search..." placeholderTextColor={colors.textTertiary} />
         {search ? <TouchableOpacity onPress={() => setSearch('')}><Text style={styles.clearSearch}>✕</Text></TouchableOpacity> : null}
       </View>
 
-      <ScrollView refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refreshFromApi} />}>
-        {dateKeys.map((dateKey) => {
-          const dayTxns = grouped[dateKey];
-          const dayTotal = dayTxns.reduce((s, t) => s + t.amount, 0);
-          return (
-            <View key={dateKey} style={styles.dayGroup}>
-              <View style={styles.dayHeader}>
-                <Text style={styles.dayTitle}>{formatSectionDate(dateKey)}</Text>
-                <Text style={[styles.dayTotal, { color: dayTotal >= 0 ? colors.success : colors.danger }]}>
-                  {dayTotal >= 0 ? '+' : ''}{formatCurrency(dayTotal)}
-                </Text>
-              </View>
-              {dayTxns.map((t) => {
-                const cat = t.category_id ? categoryMap[t.category_id] : undefined;
-                const acct = t.account_id ? accountMap[t.account_id] : undefined;
-                return (
-                  <TouchableOpacity key={t.id} style={styles.trxRow} onPress={() => openEdit(t)} onLongPress={() => handleDelete(t.id)}>
-                    <View style={[styles.trxIcon, { backgroundColor: isIncome(t) ? colors.successLight : colors.dangerLight }]}>
-                      <Text style={styles.trxIconText}>{isIncome(t) ? '📥' : '📤'}</Text>
-                    </View>
-                    <View style={styles.trxInfo}>
-                      <Text style={styles.trxDesc}>{t.description || cat?.name || 'Transaction'}</Text>
-                      <Text style={styles.trxMeta}>
-                        {cat?.name}{acct ? ` · ${acct.name}` : ''}{t.merchant ? ` · ${t.merchant}` : ''}
-                      </Text>
-                    </View>
-                    <View style={styles.trxRight}>
-                      <Text style={[styles.trxAmount, { color: isIncome(t) ? colors.success : colors.danger }]}>
-                        {formatTransactionAmount(t)}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          );
-        })}
-
-        {filtered.length === 0 && (
-          <EmptyState icon="📭" title="No transactions" subtitle={search ? 'Try a different search' : 'Tap + to add your first transaction'} />
-        )}
-        <View style={{ height: 100 }} />
-      </ScrollView>
+      <FlatList
+        style={{ flex: 1 }}
+        data={dateKeys}
+        keyExtractor={(k) => k}
+        renderItem={({ item }) => renderDaySection(item)}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refreshFromApi} />}
+        ListEmptyComponent={<EmptyState icon="📭" title="No transactions" subtitle={search ? 'Try a different search' : 'Tap + to add your first transaction'} />}
+        ListFooterComponent={<View style={{ height: 100 }} />}
+      />
 
       <View style={styles.fabRow}>
         <TouchableOpacity style={[styles.fab, { backgroundColor: colors.success }]} onPress={() => { hapticLight(); openCreate('income'); }}>
@@ -248,14 +303,10 @@ export default function TransactionsScreen() {
         </TouchableOpacity>
       </View>
 
-      <Modal visible={showCreate} onClose={() => setShowCreate(false)} title={editing ? 'Edit Transaction' : 'New Transaction'}>
+      <AdaptiveSheet visible={showCreate} onClose={() => setShowCreate(false)} title={editing ? 'Edit Transaction' : 'New Transaction'}>
         <ScrollView style={styles.form}>
-          <Text style={styles.label}>Amount</Text>
-          <TextInput style={styles.input} value={formAmount} onChangeText={setFormAmount} keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor={colors.textTertiary} />
-
-          <Text style={styles.label}>Description</Text>
-          <TextInput style={styles.input} value={formDescription} onChangeText={setFormDescription} placeholder="What was this for?" placeholderTextColor={colors.textTertiary} />
-
+          <SmartInputSuite label="Amount" value={formAmount} onChange={setFormAmount} type="currency" placeholder="0.00" />
+          <SmartInputSuite label="Description" value={formDescription} onChange={setFormDescription} type="text" placeholder="What was this for?" />
           <Text style={styles.label}>Type</Text>
           <View style={styles.typeRow}>
             <TouchableOpacity style={[styles.typeBtn, formType === 'expense' && { backgroundColor: colors.danger }]} onPress={() => setFormType('expense')}>
@@ -265,29 +316,24 @@ export default function TransactionsScreen() {
               <Text style={[styles.typeBtnText, { color: formType === 'income' ? colors.textInverse : colors.textSecondary }]}>Income</Text>
             </TouchableOpacity>
           </View>
-
           <Text style={styles.label}>Category</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {categories.filter((c) => c.type === formType).map((c) => (
-              <TouchableOpacity key={c.id} style={[styles.choiceChip, formCategoryId === c.id && { backgroundColor: (c.color || colors.primary) + '20', borderColor: c.color || colors.primary }]} onPress={() => setFormCategoryId(c.id)}>
+          <FlatList horizontal showsHorizontalScrollIndicator={false} data={categories.filter((c) => c.type === formType)} keyExtractor={(c) => c.id}
+            renderItem={({ item: c }) => (
+              <TouchableOpacity style={[styles.choiceChip, formCategoryId === c.id && { backgroundColor: (c.color || colors.primary) + '20', borderColor: c.color || colors.primary }]} onPress={() => setFormCategoryId(c.id)}>
                 <Text style={{ fontSize: 16 }}>{c.icon}</Text>
                 <Text style={[styles.choiceChipText, formCategoryId === c.id && { color: colors.text }]}>{c.name}</Text>
               </TouchableOpacity>
-            ))}
-          </ScrollView>
-
+            )}
+          />
           <Text style={styles.label}>Account</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {accounts.map((a) => (
+          <FlatList horizontal showsHorizontalScrollIndicator={false} data={accounts} keyExtractor={(a) => a.id}
+            renderItem={({ item: a }) => (
               <TouchableOpacity key={a.id} style={[styles.choiceChip, formAccountId === a.id && { backgroundColor: colors.primaryLight, borderColor: colors.primary }]} onPress={() => setFormAccountId(a.id)}>
                 <Text style={[styles.choiceChipText, formAccountId === a.id && { color: colors.primary }]}>{a.name}</Text>
               </TouchableOpacity>
-            ))}
-          </ScrollView>
-
-          <Text style={styles.label}>Date</Text>
-          <TextInput style={styles.input} value={formDate} onChangeText={setFormDate} placeholder="YYYY-MM-DD" placeholderTextColor={colors.textTertiary} />
-
+            )}
+          />
+          <SmartInputSuite label="Date" value={formDate} onChange={setFormDate} type="date" />
           <View style={styles.formActions}>
             {editing && (<TouchableOpacity style={styles.deleteBtn} onPress={() => { setShowCreate(false); handleDelete(editing.id); }}><Text style={styles.deleteBtnText}>Delete</Text></TouchableOpacity>)}
             <TouchableOpacity style={[styles.saveBtn, formSaving && { opacity: 0.5 }]} onPress={handleSave} disabled={formSaving}>
@@ -295,8 +341,7 @@ export default function TransactionsScreen() {
             </TouchableOpacity>
           </View>
         </ScrollView>
-      </Modal>
+      </AdaptiveSheet>
     </View>
   );
 }
-

@@ -10,33 +10,26 @@ import { fontSize, fontWeight } from '../theme/tokens';
 
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
-import DashboardScreen from '../screens/DashboardScreen';
-import TransactionsScreen from '../screens/TransactionsScreen';
-import AccountsScreen from '../screens/AccountsScreen';
-import MoreScreen from '../screens/MoreScreen';
+import HomeScreen from '../screens/HomeScreen';
+import LedgerScreen from '../screens/LedgerScreen';
+import PlannerScreen from '../screens/PlannerScreen';
+import SystemScreen from '../screens/SystemScreen';
 import CategoriesScreen from '../screens/CategoriesScreen';
-import BudgetsScreen from '../screens/BudgetsScreen';
-import GoalsScreen from '../screens/GoalsScreen';
-import BillsScreen from '../screens/BillsScreen';
-import RecurringScreen from '../screens/RecurringScreen';
 import AlertsScreen from '../screens/AlertsScreen';
 import AnalysisScreen from '../screens/AnalysisScreen';
-import CopilotScreen from '../screens/CopilotScreen';
-import CameraOCRScreen from '../screens/CameraOCRScreen';
-import SettingsScreen from '../screens/SettingsScreen';
-import StreaksScreen from '../screens/StreaksScreen';
-import BadgesScreen from '../screens/BadgesScreen';
 import SpendingStoryScreen from '../screens/SpendingStoryScreen';
-import AddTransactionScreen from '../screens/AddTransactionScreen';
 import CalendarSyncScreen from '../screens/CalendarSyncScreen';
-import SmsImportScreen from '../screens/SmsImportScreen';
+import BadgesStreaksScreen from '../screens/BadgesStreaksScreen';
+import ManageWidgetsScreen from '../screens/ManageWidgetsScreen';
+import AddTransactionScreen from '../screens/AddTransactionScreen';
+import QuickSplitScreen from '../screens/QuickSplitScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 function TabIcon({ label, focused }: { label: string; focused: boolean }) {
   const icons: Record<string, string> = {
-    Dashboard: '🏠', Transactions: '💳', Accounts: '🏦', More: '☰',
+    Home: '🏠', Ledger: '📒', Planner: '📋', System: '⚙️',
   };
   const icon = icons[label] || '📄';
   return (
@@ -60,10 +53,10 @@ function MainTabs() {
           headerShown: false,
         })}
       >
-        <Tab.Screen name="Dashboard" component={DashboardScreen} />
-        <Tab.Screen name="Transactions" component={TransactionsScreen} />
-        <Tab.Screen name="Accounts" component={AccountsScreen} />
-        <Tab.Screen name="More" component={MoreScreen} />
+        <Tab.Screen name="Home" component={HomeScreen} />
+        <Tab.Screen name="Ledger" component={LedgerScreen} />
+        <Tab.Screen name="Planner" component={PlannerScreen} />
+        <Tab.Screen name="System" component={SystemScreen} />
       </Tab.Navigator>
     </SafeAreaView>
   );
@@ -103,21 +96,14 @@ export default function AppNavigator() {
           <>
             <Stack.Screen name="MainTabs" component={MainTabs} />
             <Stack.Screen name="Categories" component={CategoriesScreen} options={{ headerShown: true, title: 'Categories', ...defaultHeader }} />
-            <Stack.Screen name="Budgets" component={BudgetsScreen} options={{ headerShown: true, title: 'Budgets', ...defaultHeader }} />
-            <Stack.Screen name="Goals" component={GoalsScreen} options={{ headerShown: true, title: 'Goals', ...defaultHeader }} />
-            <Stack.Screen name="Bills" component={BillsScreen} options={{ headerShown: true, title: 'Bills', ...defaultHeader }} />
-            <Stack.Screen name="Recurring" component={RecurringScreen} options={{ headerShown: true, title: 'Recurring', ...defaultHeader }} />
             <Stack.Screen name="Alerts" component={AlertsScreen} options={{ headerShown: true, title: 'Alerts', ...defaultHeader }} />
             <Stack.Screen name="Analysis" component={AnalysisScreen} options={{ headerShown: true, title: 'Analysis', ...defaultHeader }} />
-            <Stack.Screen name="Copilot" component={CopilotScreen} options={{ headerShown: true, title: 'AI Copilot', ...defaultHeader }} />
-            <Stack.Screen name="CameraOCR" component={CameraOCRScreen} options={{ headerShown: true, title: 'Scan Receipt', ...defaultHeader }} />
-            <Stack.Screen name="Settings" component={SettingsScreen} options={{ headerShown: true, title: 'Settings', ...defaultHeader }} />
-            <Stack.Screen name="AddTransaction" component={AddTransactionScreen} options={{ presentation: 'modal', headerShown: true, title: 'Add Transaction', ...defaultHeader }} />
-            <Stack.Screen name="Streaks" component={StreaksScreen} options={{ headerShown: true, title: 'Streaks', ...defaultHeader }} />
-            <Stack.Screen name="Badges" component={BadgesScreen} options={{ headerShown: true, title: 'Badges', ...defaultHeader }} />
             <Stack.Screen name="SpendingStory" component={SpendingStoryScreen} options={{ headerShown: true, title: 'Your Month', ...defaultHeader }} />
             <Stack.Screen name="CalendarSync" component={CalendarSyncScreen} options={{ headerShown: true, title: 'Calendar Sync', ...defaultHeader }} />
-            <Stack.Screen name="SmsImport" component={SmsImportScreen} options={{ headerShown: true, title: 'Import from SMS', ...defaultHeader }} />
+            <Stack.Screen name="BadgesStreaks" component={BadgesStreaksScreen} options={{ headerShown: true, title: 'Badges & Streaks', ...defaultHeader }} />
+            <Stack.Screen name="ManageWidgets" component={ManageWidgetsScreen} options={{ headerShown: true, title: 'Manage Widgets', ...defaultHeader }} />
+            <Stack.Screen name="AddTransaction" component={AddTransactionScreen} options={{ presentation: 'modal', headerShown: true, title: 'Add Transaction', ...defaultHeader }} />
+            <Stack.Screen name="QuickSplit" component={QuickSplitScreen} options={{ presentation: 'modal', headerShown: true, title: 'Split Transaction', ...defaultHeader }} />
           </>
         ) : (
           <>

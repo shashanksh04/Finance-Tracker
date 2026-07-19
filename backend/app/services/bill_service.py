@@ -95,6 +95,7 @@ class BillService:
             cat_name = bill.category.name
         return {
             "id": bill.id,
+            "user_id": bill.user_id,
             "name": bill.name,
             "amount": float(bill.amount),
             "due_date": bill.due_date.isoformat() if bill.due_date else None,

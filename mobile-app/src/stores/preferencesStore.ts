@@ -3,6 +3,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const PREFS_KEY = 'app_preferences';
 
+export type WidgetId = 'balance' | 'recent' | 'streaks' | 'goals' | 'budgets';
+
 interface AppPreferences {
   currency: string;
   darkMode: boolean;
@@ -11,6 +13,8 @@ interface AppPreferences {
   notificationsEnabled: boolean;
   budgetAlertThreshold: number;
   billReminderDays: number;
+  dashboardLayout: WidgetId[];
+  compactMode: boolean;
 }
 
 interface PreferencesState {
@@ -28,6 +32,8 @@ const DEFAULTS: AppPreferences = {
   notificationsEnabled: true,
   budgetAlertThreshold: 80,
   billReminderDays: 3,
+  dashboardLayout: ['balance', 'recent', 'streaks', 'goals', 'budgets'],
+  compactMode: false,
 };
 
 export const usePreferencesStore = create<PreferencesState>((set, get) => ({

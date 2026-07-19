@@ -129,6 +129,7 @@ class RecurringService:
             category_name = item.category.name
         return {
             "id": item.id,
+            "user_id": item.user_id,
             "account_id": item.account_id,
             "account_name": account_name,
             "category_id": item.category_id,

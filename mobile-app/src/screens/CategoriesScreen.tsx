@@ -6,7 +6,7 @@ import { useOfflineList } from '../hooks/useOfflineData';
 import { repository } from '../database/repository';
 import { TABLES } from '../database/schema';
 import { ListSkeleton } from '../components/ui/SkeletonLoader';
-import Modal from '../components/ui/Modal';
+import AdaptiveSheet from '../components/AdaptiveSheet';
 import EmptyState from '../components/ui/EmptyState';
 import type { Category, CategoryType } from '../types';
 import { spacing, radius, fontSize, fontWeight, shadow } from '../theme/tokens';
@@ -106,7 +106,7 @@ export default function CategoriesScreen() {
 
       <TouchableOpacity style={styles.fab} onPress={openCreate}><Text style={styles.fabText}>+</Text></TouchableOpacity>
 
-      <Modal visible={showModal} onClose={() => setShowModal(false)} title={editing ? 'Edit Category' : 'New Category'}>
+      <AdaptiveSheet visible={showModal} onClose={() => setShowModal(false)} title={editing ? 'Edit Category' : 'New Category'}>
         <View style={styles.form}>
           <Text style={styles.label}>Name</Text><TextInput style={styles.input} value={formName} onChangeText={setFormName} placeholder="Category name" placeholderTextColor={colors.textTertiary} />
           <Text style={styles.label}>Icon</Text><TextInput style={styles.input} value={formIcon} onChangeText={setFormIcon} placeholder="📦" placeholderTextColor={colors.textTertiary} />
@@ -132,7 +132,7 @@ export default function CategoriesScreen() {
             </TouchableOpacity>
           </View>
         </View>
-      </Modal>
+      </AdaptiveSheet>
     </View>
   );
 }
