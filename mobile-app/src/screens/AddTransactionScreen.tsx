@@ -11,6 +11,7 @@ import { parseSmsTransaction } from '../services/smsParser';
 import { repository } from '../database/repository';
 import { TABLES } from '../database/schema';
 import type { Category, Account } from '../types';
+import { formatCurrency, getCurrencySymbol } from '../utils/format';
 
 type Tab = 'manual' | 'scan' | 'sms';
 
@@ -230,7 +231,7 @@ export default function AddTransactionScreen({ route, navigation }: any) {
       <Text style={styles.label}>Description</Text>
       <TextInput style={styles.input} value={description} onChangeText={setDescription} placeholder="e.g., Groceries" placeholderTextColor={colors.textTertiary} />
 
-      <Text style={styles.label}>Amount (₹)</Text>
+      <Text style={styles.label}>Amount ({getCurrencySymbol()})</Text>
       <TextInput style={styles.input} value={amount} onChangeText={setAmount} placeholder="0.00" placeholderTextColor={colors.textTertiary} keyboardType="decimal-pad" />
 
       <Text style={styles.label}>Category</Text>
@@ -305,7 +306,7 @@ export default function AddTransactionScreen({ route, navigation }: any) {
           <Image source={{ uri: imageUri }} style={styles.preview} resizeMode="contain" accessibilityLabel="Receipt preview" />
           <View style={styles.resultCard}>
             {ocrData.merchant && <View style={styles.resultRow}><Text style={styles.resultLabel}>Merchant</Text><Text style={styles.resultValue}>{ocrData.merchant}</Text></View>}
-            {ocrData.amount && <View style={styles.resultRow}><Text style={styles.resultLabel}>Amount</Text><Text style={styles.resultValue}>₹{ocrData.amount}</Text></View>}
+            {ocrData.amount && <View style={styles.resultRow}><Text style={styles.resultLabel}>Amount</Text><Text style={styles.resultValue}>{formatCurrency(ocrData.amount)}</Text></View>}
             {ocrData.date && <View style={styles.resultRow}><Text style={styles.resultLabel}>Date</Text><Text style={styles.resultValue}>{ocrData.date}</Text></View>}
             {ocrData.raw_text && <Text style={{ fontSize: fontSize.xs, color: colors.textTertiary, marginTop: spacing.sm, fontStyle: 'italic' }}>{ocrData.raw_text}</Text>}
           </View>
@@ -384,7 +385,7 @@ export default function AddTransactionScreen({ route, navigation }: any) {
         <View style={styles.resultCard}>
           <Text style={{ fontSize: fontSize.base, fontWeight: fontWeight.bold, color: colors.text, marginBottom: spacing.md }}>Parsed Transaction</Text>
           <View style={styles.resultRow}><Text style={styles.resultLabel}>Description:</Text><Text style={styles.resultValue}>{smsResult.description}</Text></View>
-          <View style={styles.resultRow}><Text style={styles.resultLabel}>Amount:</Text><Text style={styles.resultValue}>₹{smsResult.amount}</Text></View>
+          <View style={styles.resultRow}><Text style={styles.resultLabel}>Amount:</Text><Text style={styles.resultValue}>{formatCurrency(smsResult.amount)}</Text></View>
           <View style={styles.resultRow}><Text style={styles.resultLabel}>Type:</Text><Text style={[styles.resultValue, { color: smsResult.type === 'expense' ? colors.danger : colors.success }]}>{smsResult.type}</Text></View>
           <TouchableOpacity style={styles.useResultBtn} onPress={applySms} accessibilityLabel="Use SMS data" accessibilityRole="button">
             <Text style={styles.useResultBtnText}>Fill Form with This Data</Text>

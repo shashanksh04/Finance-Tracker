@@ -95,7 +95,27 @@ async def _detect_goal_conflicts():
         users = list(result.scalars().all())
         total = 0
         for user in users:
-            alerts = await detect_goal_spending_conflicts(db, user.id)
+            alerts = await detect_goal_spending_conflicts(db, user.id, user.settings.get("currency", "USD") if user.settings else "USD")
             total += len(alerts)
         await db.commit()
         print(f"Detected {total} goal-spending conflicts for {len(users)} users")
+
+
+@celery_app.task
+def cleanup_old_memories():
+    _run_async(_cleanup_memories())
+
+
+async def _cleanup_memories():
+    from sqlalchemy import select
+    from app.models.user import User
+    from app.services.memory_service import MemoryService
+    async with async_session_factory() as db:
+        result = await db.execute(select(User).where(User.is_active == True))
+        users = list(result.scalars().all())
+        total = 0
+        for user in users:
+            svc = MemoryService(db)
+            total += await svc.cleanup_old_memories(user.id)
+        await db.commit()
+        print(f"Cleaned up {total} old memories for {len(users)} users")

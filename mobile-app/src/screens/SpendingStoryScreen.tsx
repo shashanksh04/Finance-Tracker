@@ -2,10 +2,12 @@ import React, { useMemo, useState, useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
 import { spacing, radius, fontSize, fontWeight, shadow } from '../theme/tokens';
 import { useTheme } from '../theme/ThemeContext';
-import { useOfflineList, useOfflineItem } from '../hooks/useOfflineData';
+import { useOfflineList } from '../hooks/useOfflineData';
+import { useDashboardSummary } from '../hooks/useDashboardSummary';
 import { useHaptics } from '../hooks/useHaptics';
 import { CardSkeleton } from '../components/ui/SkeletonLoader';
 import { calculatePersonality } from '../data/personalities';
+import { formatCurrency } from '../utils/format';
 
 type Slide = {
   emoji: string;
@@ -16,7 +18,7 @@ type Slide = {
 export default function SpendingStoryScreen() {
   const { colors } = useTheme();
   const { light: hapticLight } = useHaptics();
-  const { data: summary, loading, refresh } = useOfflineItem('dashboard_summary', 'current');
+  const { summary, loading, refresh } = useDashboardSummary();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const styles = useMemo(() => StyleSheet.create({
@@ -79,9 +81,9 @@ export default function SpendingStoryScreen() {
         emoji: '📊',
         title: 'Your Month at a Glance',
         lines: [
-          `Total Income: ₹${income.toLocaleString('en-IN')}`,
-          `Total Expenses: ₹${expenses.toLocaleString('en-IN')}`,
-          `Net Balance: ₹${balance.toLocaleString('en-IN')}`,
+          `Total Income: ${formatCurrency(income)}`,
+          `Total Expenses: ${formatCurrency(expenses)}`,
+          `Net Balance: ${formatCurrency(balance)}`,
         ],
       },
       {

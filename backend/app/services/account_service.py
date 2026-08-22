@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
+from datetime import datetime, timezone
 from app.models.account import Account
 from app.models.transaction import Transaction
 from app.schemas.account import AccountCreate, AccountUpdate
@@ -17,7 +18,7 @@ class AccountService:
         return account
 
     async def get_all(self, user_id: str, include_archived: bool = False, page: int = 0, page_size: int = 0) -> list[Account] | dict:
-        query = select(Account).where(Account.user_id == user_id)
+        query = select(Account).where(Account.user_id == user_id, Account.deleted_at.is_(None))
         if not include_archived:
             query = query.where(Account.is_archived == False)
         query = query.order_by(Account.created_at)
@@ -40,7 +41,7 @@ class AccountService:
 
     async def get_by_id(self, user_id: str, account_id: str) -> Account:
         result = await self.db.execute(
-            select(Account).where(Account.id == account_id, Account.user_id == user_id)
+            select(Account).where(Account.id == account_id, Account.user_id == user_id, Account.deleted_at.is_(None))
         )
         account = result.scalar_one_or_none()
         if not account:
@@ -50,7 +51,7 @@ class AccountService:
 
     async def update(self, user_id: str, account_id: str, data: AccountUpdate) -> Account:
         account = await self.db.execute(
-            select(Account).where(Account.id == account_id, Account.user_id == user_id)
+            select(Account).where(Account.id == account_id, Account.user_id == user_id, Account.deleted_at.is_(None))
         )
         account = account.scalar_one_or_none()
         if not account:
@@ -64,21 +65,25 @@ class AccountService:
 
     async def delete(self, user_id: str, account_id: str) -> bool:
         account = await self.db.execute(
-            select(Account).where(Account.id == account_id, Account.user_id == user_id)
+            select(Account).where(Account.id == account_id, Account.user_id == user_id, Account.deleted_at.is_(None))
         )
         account = account.scalar_one_or_none()
         if not account:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
         from app.models.transaction import Transaction
         from app.models.recurring import RecurringTransaction
+        now = datetime.now(timezone.utc)
         await self.db.execute(
-            Transaction.__table__.delete().where(Transaction.account_id == account_id)
+            Transaction.__table__.update().where(Transaction.account_id == account_id).values(deleted_at=now)
         )
         await self.db.execute(
-            RecurringTransaction.__table__.delete().where(RecurringTransaction.account_id == account_id)
+            RecurringTransaction.__table__.update().where(RecurringTransaction.account_id == account_id).values(deleted_at=now)
         )
-        await self.db.delete(account)
+        account.deleted_at = now
         await self.db.flush()
+        from app.ws.events import notify_dashboard_updated, notify_alerts_updated
+        await notify_dashboard_updated(user_id)
+        await notify_alerts_updated(user_id)
         return True
 
     async def get_summary(self, user_id: str, account_id: str) -> dict:
@@ -90,22 +95,23 @@ class AccountService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
         income_result = await self.db.execute(
             select(func.coalesce(func.sum(Transaction.amount), 0))
-            .where(Transaction.account_id == account_id, Transaction.type == "income")
+            .where(Transaction.account_id == account_id, Transaction.type == "income", Transaction.deleted_at.is_(None))
         )
         expense_result = await self.db.execute(
             select(func.coalesce(func.sum(Transaction.amount), 0))
-            .where(Transaction.account_id == account_id, Transaction.type == "expense")
+            .where(Transaction.account_id == account_id, Transaction.type == "expense", Transaction.deleted_at.is_(None))
         )
         count_result = await self.db.execute(
             select(func.count(Transaction.id))
-            .where(Transaction.account_id == account_id)
+            .where(Transaction.account_id == account_id, Transaction.deleted_at.is_(None))
         )
         total_income = income_result.scalar() or 0
         total_expenses = expense_result.scalar() or 0
         transaction_count = count_result.scalar() or 0
+        balance = float(account.balance or 0) + float(total_income) - float(total_expenses)
         return {
             **{c.name: getattr(account, c.name) for c in account.__table__.columns},
-            "balance": float(account.balance),
+            "balance": round(balance, 2),
             "total_income": float(total_income),
             "total_expenses": float(total_expenses),
             "transaction_count": transaction_count,
@@ -117,19 +123,20 @@ class AccountService:
         ids = [a.id for a in accounts]
         income_rows = await self.db.execute(
             select(Transaction.account_id, func.coalesce(func.sum(Transaction.amount), 0).label("total"))
-            .where(Transaction.account_id.in_(ids), Transaction.type == "income")
+            .where(Transaction.account_id.in_(ids), Transaction.type == "income", Transaction.deleted_at.is_(None))
             .group_by(Transaction.account_id)
         )
         expense_rows = await self.db.execute(
             select(Transaction.account_id, func.coalesce(func.sum(Transaction.amount), 0).label("total"))
-            .where(Transaction.account_id.in_(ids), Transaction.type == "expense")
+            .where(Transaction.account_id.in_(ids), Transaction.type == "expense", Transaction.deleted_at.is_(None))
             .group_by(Transaction.account_id)
         )
         income_map = {row.account_id: float(row.total) for row in income_rows.all()}
         expense_map = {row.account_id: float(row.total) for row in expense_rows.all()}
         for a in accounts:
+            opening_balance = float(a.balance or 0)
             income = income_map.get(a.id, 0)
             expense = expense_map.get(a.id, 0)
-            net = income - expense
-            setattr(a, 'balance', float(net))
+            net = opening_balance + income - expense
+            setattr(a, 'balance', round(net, 2))
         return accounts

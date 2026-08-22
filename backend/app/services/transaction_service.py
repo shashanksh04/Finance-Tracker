@@ -7,6 +7,7 @@ from app.models.category import Category
 from app.schemas.transaction import TransactionCreate, TransactionUpdate, TransactionFilterParams
 from fastapi import HTTPException, status
 import math
+from datetime import datetime, timezone
 
 
 class TransactionService:
@@ -14,16 +15,30 @@ class TransactionService:
         self.db = db
 
     async def create(self, user_id: str, data: TransactionCreate) -> Transaction:
-        account = await self.db.execute(select(Account).where(Account.id == data.account_id, Account.user_id == user_id))
+        account = await self.db.execute(select(Account).where(Account.id == data.account_id, Account.user_id == user_id, Account.deleted_at.is_(None)))
         if not account.scalar_one_or_none():
             raise HTTPException(status_code=404, detail="Account not found")
-        txn = Transaction(user_id=user_id, **data.model_dump())
+        category_id = data.category_id
+        if not category_id:
+            from app.services.category_rule_service import CategoryRuleService
+            rule_service = CategoryRuleService(self.db)
+            matched = await rule_service.match_transaction(
+                user_id,
+                data.description,
+                data.merchant,
+                float(data.amount) if data.amount is not None else None,
+            )
+            if matched:
+                category_id = matched
+        txn_data = data.model_dump()
+        txn_data["category_id"] = category_id
+        txn = Transaction(user_id=user_id, **txn_data)
         self.db.add(txn)
         await self.db.flush()
         return await self._load_relations(txn)
 
     async def get_filtered(self, user_id: str, filters: TransactionFilterParams) -> dict:
-        query = select(Transaction).options(joinedload(Transaction.account), joinedload(Transaction.category)).where(Transaction.user_id == user_id)
+        query = select(Transaction).options(joinedload(Transaction.account), joinedload(Transaction.category)).where(Transaction.user_id == user_id, Transaction.deleted_at.is_(None))
         if filters.account_id:
             query = query.where(Transaction.account_id == filters.account_id)
         if filters.category_id:
@@ -47,7 +62,9 @@ class TransactionService:
             )
         count_query = select(func.count()).select_from(query.subquery())
         total = (await self.db.execute(count_query)).scalar() or 0
-        sort_col = getattr(Transaction, filters.sort_by, Transaction.date)
+        VALID_SORT_COLUMNS = {"date", "amount", "created_at", "updated_at", "description", "merchant"}
+        sort_by = filters.sort_by if filters.sort_by in VALID_SORT_COLUMNS else "date"
+        sort_col = getattr(Transaction, sort_by, Transaction.date)
         order_fn = desc if filters.sort_order == "desc" else asc
         query = query.order_by(order_fn(sort_col))
         offset = (filters.page - 1) * filters.page_size
@@ -92,7 +109,7 @@ class TransactionService:
 
     async def get_by_id(self, user_id: str, txn_id: str) -> Transaction:
         result = await self.db.execute(
-            select(Transaction).where(Transaction.id == txn_id, Transaction.user_id == user_id)
+            select(Transaction).where(Transaction.id == txn_id, Transaction.user_id == user_id, Transaction.deleted_at.is_(None))
         )
         txn = result.scalar_one_or_none()
         if not txn:
@@ -101,7 +118,7 @@ class TransactionService:
 
     async def update(self, user_id: str, txn_id: str, data: TransactionUpdate) -> Transaction:
         result = await self.db.execute(
-            select(Transaction).where(Transaction.id == txn_id, Transaction.user_id == user_id)
+            select(Transaction).where(Transaction.id == txn_id, Transaction.user_id == user_id, Transaction.deleted_at.is_(None))
         )
         txn = result.scalar_one_or_none()
         if not txn:
@@ -114,12 +131,12 @@ class TransactionService:
 
     async def delete(self, user_id: str, txn_id: str) -> bool:
         result = await self.db.execute(
-            select(Transaction).where(Transaction.id == txn_id, Transaction.user_id == user_id)
+            select(Transaction).where(Transaction.id == txn_id, Transaction.user_id == user_id, Transaction.deleted_at.is_(None))
         )
         txn = result.scalar_one_or_none()
         if not txn:
             raise HTTPException(status_code=404, detail="Transaction not found")
-        await self.db.delete(txn)
+        txn.deleted_at = datetime.now(timezone.utc)
         await self.db.flush()
         return True
 

@@ -1,11 +1,11 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
+from datetime import date, datetime, timezone, timedelta
+import calendar
 from app.models.recurring import RecurringTransaction
 from app.schemas.recurring import RecurringCreate, RecurringUpdate
 from fastapi import HTTPException, status
-from datetime import date, timedelta
-import calendar
 
 
 class RecurringService:
@@ -25,7 +25,7 @@ class RecurringService:
         query = select(RecurringTransaction).options(
             joinedload(RecurringTransaction.account),
             joinedload(RecurringTransaction.category),
-        ).where(RecurringTransaction.user_id == user_id)
+        ).where(RecurringTransaction.user_id == user_id, RecurringTransaction.deleted_at.is_(None))
         if active_only:
             query = query.where(RecurringTransaction.is_active == True)
         result = await self.db.execute(query.order_by(RecurringTransaction.next_date))
@@ -34,7 +34,7 @@ class RecurringService:
 
     async def get_by_id(self, user_id: str, recurring_id: str) -> dict:
         result = await self.db.execute(
-            select(RecurringTransaction).where(RecurringTransaction.id == recurring_id, RecurringTransaction.user_id == user_id)
+            select(RecurringTransaction).where(RecurringTransaction.id == recurring_id, RecurringTransaction.user_id == user_id, RecurringTransaction.deleted_at.is_(None))
         )
         item = result.scalar_one_or_none()
         if not item:
@@ -46,7 +46,7 @@ class RecurringService:
             select(RecurringTransaction).options(
                 joinedload(RecurringTransaction.account),
                 joinedload(RecurringTransaction.category),
-            ).where(RecurringTransaction.id == recurring_id, RecurringTransaction.user_id == user_id)
+            ).where(RecurringTransaction.id == recurring_id, RecurringTransaction.user_id == user_id, RecurringTransaction.deleted_at.is_(None))
         )
         item = result.unique().scalar_one_or_none()
         if not item:
@@ -59,12 +59,12 @@ class RecurringService:
 
     async def delete(self, user_id: str, recurring_id: str) -> bool:
         result = await self.db.execute(
-            select(RecurringTransaction).where(RecurringTransaction.id == recurring_id, RecurringTransaction.user_id == user_id)
+            select(RecurringTransaction).where(RecurringTransaction.id == recurring_id, RecurringTransaction.user_id == user_id, RecurringTransaction.deleted_at.is_(None))
         )
         item = result.scalar_one_or_none()
         if not item:
             raise HTTPException(status_code=404, detail="Recurring transaction not found")
-        await self.db.delete(item)
+        item.deleted_at = datetime.now(timezone.utc)
         await self.db.flush()
         return True
 
@@ -74,6 +74,7 @@ class RecurringService:
             select(RecurringTransaction).where(
                 RecurringTransaction.is_active == True,
                 RecurringTransaction.next_date <= today,
+                RecurringTransaction.deleted_at.is_(None),
             )
         )
         items = list(result.scalars().all())

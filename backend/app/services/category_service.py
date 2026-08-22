@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
+from datetime import datetime, timezone
 from app.models.category import Category
 from app.models.transaction import Transaction
 from app.schemas.category import CategoryCreate, CategoryUpdate
@@ -17,7 +18,7 @@ class CategoryService:
         return category
 
     async def get_all(self, user_id: str, type_filter: str = None, page: int = 0, page_size: int = 0) -> list[Category] | dict:
-        query = select(Category).where(Category.user_id == user_id)
+        query = select(Category).where(Category.user_id == user_id, Category.deleted_at.is_(None))
         if type_filter:
             query = query.where(Category.type == type_filter)
         query = query.order_by(Category.sort_order)
@@ -39,7 +40,7 @@ class CategoryService:
 
     async def get_by_id(self, user_id: str, category_id: str) -> Category:
         result = await self.db.execute(
-            select(Category).where(Category.id == category_id, Category.user_id == user_id)
+            select(Category).where(Category.id == category_id, Category.user_id == user_id, Category.deleted_at.is_(None))
         )
         cat = result.scalar_one_or_none()
         if not cat:
@@ -55,6 +56,6 @@ class CategoryService:
 
     async def delete(self, user_id: str, category_id: str) -> bool:
         cat = await self.get_by_id(user_id, category_id)
-        await self.db.delete(cat)
+        cat.deleted_at = datetime.now(timezone.utc)
         await self.db.flush()
         return True

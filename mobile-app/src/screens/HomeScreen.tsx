@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Animated } from 'react-native';
 import { analysisApi, transactionsApi, accountsApi } from '../services/api';
-import { useOfflineList, useOfflineItem } from '../hooks/useOfflineData';
+import { useOfflineList } from '../hooks/useOfflineData';
+import { useDashboardSummary } from '../hooks/useDashboardSummary';
 import { TABLES } from '../database/schema';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { useHaptics } from '../hooks/useHaptics';
@@ -56,7 +57,7 @@ export default function HomeScreen() {
     mapApiResponse: (res) => res.data?.items || res.data || [],
   });
 
-  const { data: summary, refresh: refreshSummary } = useOfflineItem('dashboard_summary', 'current');
+  const { summary, refresh: refreshSummary } = useDashboardSummary();
   const [refreshing, setRefreshing] = useState(false);
 
   const widgets = useMemo(() => prefs.dashboardLayout, [prefs.dashboardLayout]);

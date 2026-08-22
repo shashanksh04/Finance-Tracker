@@ -6,9 +6,11 @@ from app.models.goal import Goal
 from app.models.transaction import Transaction
 from app.models.memory import FinancialMemory
 from app.embeddings.embedding_service import EmbeddingService
+from app.core.currency import CURRENCY_SYMBOLS
 
 
-async def detect_goal_spending_conflicts(db: AsyncSession, user_id: str) -> list[dict]:
+async def detect_goal_spending_conflicts(db: AsyncSession, user_id: str, currency: str = "USD") -> list[dict]:
+    sym = CURRENCY_SYMBOLS.get(currency, "$")
     today = date.today()
     month_start = today.replace(day=1)
     month_end = (month_start + timedelta(days=32)).replace(day=1)
@@ -35,15 +37,15 @@ async def detect_goal_spending_conflicts(db: AsyncSession, user_id: str) -> list
     )
     monthly_expense = float(expense_r.scalar() or 0)
 
+    monthly_subq = (
+        select(func.sum(Transaction.amount).label("total"))
+        .where(Transaction.user_id == user_id, Transaction.date >= last_3_start,
+               Transaction.date < month_end, Transaction.type == "expense")
+        .group_by(func.date_trunc("month", Transaction.date))
+        .subquery()
+    )
     avg_expense_r = await db.execute(
-        select(func.coalesce(func.avg(sub.c.total), 0))
-        .select_from(
-            select(func.sum(Transaction.amount).label("total"))
-            .where(Transaction.user_id == user_id, Transaction.date >= last_3_start,
-                   Transaction.date < month_end, Transaction.type == "expense")
-            .group_by(func.date_trunc("month", Transaction.date))
-            .subquery()
-        )
+        select(func.coalesce(func.avg(monthly_subq.c.total), 0))
     )
     avg_monthly_expense = float(avg_expense_r.scalar() or 0) or monthly_expense
 
@@ -69,9 +71,9 @@ async def detect_goal_spending_conflicts(db: AsyncSession, user_id: str) -> list
             deficit = round(suggested_monthly - effective_surplus, 2)
             try:
                 insight_text = (
-                    f"Goal '{g.name}' needs ₹{suggested_monthly:.0f}/month but your current "
-                    f"spending leaves only ₹{effective_surplus:.0f}/month. "
-                    f"Consider reducing discretionary spending by ₹{deficit:.0f}/month to stay on track."
+                    f"Goal '{g.name}' needs {sym}{suggested_monthly:.0f}/month but your current "
+                    f"spending leaves only {sym}{effective_surplus:.0f}/month. "
+                    f"Consider reducing discretionary spending by {sym}{deficit:.0f}/month to stay on track."
                 )
                 emb = await EmbeddingService.embed(insight_text)
                 memory = FinancialMemory(

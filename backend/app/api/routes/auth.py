@@ -11,7 +11,7 @@ from app.services.auth_service import AuthService
 from app.core.security import decode_token, blacklist_token
 from app.core.config import settings
 
-limiter = Limiter(key_func=get_remote_address)
+limiter = Limiter(key_func=get_remote_address, default_limits=["1000/minute"])
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 

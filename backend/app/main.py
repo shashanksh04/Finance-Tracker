@@ -5,7 +5,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from app.core.config import settings
 from app.core.redis import close_redis
-from app.core.static_auth import AuthenticatedStaticFilesMiddleware
+from app.core.authenticated_static import AuthenticatedStaticFiles
 from app.api.routes import auth, accounts, categories, category_rules, transactions, budgets, recurring, goals, alerts, bills, memories, analysis, copilot, ocr, import_routes, ws, sync, admin
 
 app = FastAPI(title=settings.APP_NAME, version=settings.VERSION)
@@ -29,7 +29,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.add_middleware(AuthenticatedStaticFilesMiddleware)
 
 app.include_router(auth.router)
 app.include_router(accounts.router)
@@ -50,7 +49,7 @@ app.include_router(ws.router)
 app.include_router(sync.router)
 app.include_router(admin.router)
 
-app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
+app.mount("/uploads", AuthenticatedStaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
 
 
 @app.on_event("shutdown")

@@ -5,7 +5,7 @@ from app.api.deps import get_current_user
 from app.models.user import User
 from app.schemas.alert import AlertResponse, AlertPreferenceUpdate, AlertPreferenceResponse
 from app.services.alert_service import AlertService
-from app.ws.events import notify_alerts_updated, notify_alert_read, notify_alert_dismissed
+from app.ws.events import notify_alerts_updated, notify_alert_read, notify_alert_dismissed, notify_dashboard_updated
 from typing import List
 
 router = APIRouter(prefix="/api/alerts", tags=["Alerts"])

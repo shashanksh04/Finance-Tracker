@@ -34,5 +34,9 @@ celery_app.conf.update(
             "task": "app.tasks.scheduled_tasks.detect_goal_spending_conflicts",
             "schedule": 43200.0,
         },
+        "cleanup-memories-daily": {
+            "task": "app.tasks.scheduled_tasks.cleanup_old_memories",
+            "schedule": 86400.0,
+        },
     },
 )

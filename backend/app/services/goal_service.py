@@ -1,10 +1,10 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.orm import joinedload
+from datetime import date, datetime, timezone
 from app.models.goal import Goal
 from app.schemas.goal import GoalCreate, GoalUpdate
 from fastapi import HTTPException, status
-from datetime import date
 
 
 class GoalService:
@@ -19,7 +19,7 @@ class GoalService:
         return await self._enrich(goal)
 
     async def get_all(self, user_id: str, status_filter: str = None, page: int = 0, page_size: int = 0) -> list[dict] | dict:
-        query = select(Goal).options(joinedload(Goal.category)).where(Goal.user_id == user_id)
+        query = select(Goal).options(joinedload(Goal.category)).where(Goal.user_id == user_id, Goal.deleted_at.is_(None))
         if status_filter:
             query = query.where(Goal.status == status_filter)
         query = query.order_by(Goal.created_at.desc())
@@ -42,7 +42,7 @@ class GoalService:
 
     async def get_by_id(self, user_id: str, goal_id: str) -> dict:
         result = await self.db.execute(
-            select(Goal).options(joinedload(Goal.category)).where(Goal.id == goal_id, Goal.user_id == user_id)
+            select(Goal).options(joinedload(Goal.category)).where(Goal.id == goal_id, Goal.user_id == user_id, Goal.deleted_at.is_(None))
         )
         goal = result.unique().scalar_one_or_none()
         if not goal:
@@ -51,7 +51,7 @@ class GoalService:
 
     async def update(self, user_id: str, goal_id: str, data: GoalUpdate) -> dict:
         result = await self.db.execute(
-            select(Goal).options(joinedload(Goal.category)).where(Goal.id == goal_id, Goal.user_id == user_id)
+            select(Goal).options(joinedload(Goal.category)).where(Goal.id == goal_id, Goal.user_id == user_id, Goal.deleted_at.is_(None))
         )
         goal = result.unique().scalar_one_or_none()
         if not goal:
@@ -64,12 +64,12 @@ class GoalService:
 
     async def delete(self, user_id: str, goal_id: str) -> bool:
         result = await self.db.execute(
-            select(Goal).where(Goal.id == goal_id, Goal.user_id == user_id)
+            select(Goal).where(Goal.id == goal_id, Goal.user_id == user_id, Goal.deleted_at.is_(None))
         )
         goal = result.scalar_one_or_none()
         if not goal:
             raise HTTPException(status_code=404, detail="Goal not found")
-        await self.db.delete(goal)
+        goal.deleted_at = datetime.now(timezone.utc)
         await self.db.flush()
         return True
 

@@ -10,13 +10,11 @@ from app.models.bill import Bill
 from app.models.goal import Goal
 from app.models.account import Account
 from app.services.analysis_service import AnalysisService
+from app.core.currency import get_currency_symbol
 
 
 def _currency_symbol(user) -> str:
-    cur = (user.settings or {}).get("currency", "USD") if user else "USD"
-    sym = {"USD": "$", "EUR": "€", "GBP": "£", "INR": "₹", "JPY": "¥",
-           "CAD": "C$", "AUD": "A$", "SGD": "S$", "CHF": "Fr", "CNY": "¥"}
-    return sym.get(cur, "$")
+    return get_currency_symbol(user)
 
 
 async def get_spending_by_category(

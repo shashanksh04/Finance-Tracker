@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from datetime import datetime, timezone
 from app.models.category_rule import CategoryRule
 from app.models.category import Category
 from app.schemas.category_rule import CategoryRuleCreate, CategoryRuleUpdate
@@ -21,14 +22,14 @@ class CategoryRuleService:
 
     async def get_all(self, user_id: str) -> list[dict]:
         result = await self.db.execute(
-            select(CategoryRule).where(CategoryRule.user_id == user_id).order_by(CategoryRule.priority.desc())
+            select(CategoryRule).where(CategoryRule.user_id == user_id, CategoryRule.deleted_at.is_(None)).order_by(CategoryRule.priority.desc())
         )
         rules = list(result.scalars().all())
         return [await self._enrich(r) for r in rules]
 
     async def get_by_id(self, user_id: str, rule_id: str) -> CategoryRule:
         result = await self.db.execute(
-            select(CategoryRule).where(CategoryRule.id == rule_id, CategoryRule.user_id == user_id)
+            select(CategoryRule).where(CategoryRule.id == rule_id, CategoryRule.user_id == user_id, CategoryRule.deleted_at.is_(None))
         )
         rule = result.scalar_one_or_none()
         if not rule:
@@ -44,7 +45,7 @@ class CategoryRuleService:
 
     async def delete(self, user_id: str, rule_id: str) -> bool:
         rule = await self.get_by_id(user_id, rule_id)
-        await self.db.delete(rule)
+        rule.deleted_at = datetime.now(timezone.utc)
         await self.db.flush()
         return True
 

@@ -9,6 +9,7 @@ import { TABLES } from '../database/schema';
 import { addBillReminder, removeBillReminder } from '../services/calendar';
 import { CardSkeleton } from '../components/ui/SkeletonLoader';
 import type { Bill } from '../types';
+import { formatCurrency } from '../utils/format';
 
 export default function CalendarSyncScreen() {
   const { colors } = useTheme();
@@ -56,7 +57,7 @@ export default function CalendarSyncScreen() {
       const eventId = await addBillReminder(
         bill.name,
         bill.next_due_date || bill.created_at,
-        `Amount: ₹${bill.amount}`
+        `Amount: ${formatCurrency(bill.amount)}`
       );
       if (eventId) {
         await repository.update(TABLES.BILLS, bill.id, { ...bill, calendar_event_id: eventId });

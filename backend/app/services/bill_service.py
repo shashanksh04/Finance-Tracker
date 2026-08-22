@@ -1,6 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
+from datetime import datetime, timezone
 from app.models.bill import Bill
 from app.schemas.bill import BillCreate, BillUpdate
 from fastapi import HTTPException, status, UploadFile
@@ -21,7 +22,7 @@ class BillService:
         return await self._enrich(bill)
 
     async def get_all(self, user_id: str, unpaid_only: bool = False) -> list[dict]:
-        query = select(Bill).options(joinedload(Bill.category)).where(Bill.user_id == user_id)
+        query = select(Bill).options(joinedload(Bill.category)).where(Bill.user_id == user_id, Bill.deleted_at.is_(None))
         if unpaid_only:
             query = query.where(Bill.is_paid == False)
         result = await self.db.execute(query.order_by(Bill.due_date))
@@ -30,7 +31,7 @@ class BillService:
 
     async def get_by_id(self, user_id: str, bill_id: str) -> dict:
         result = await self.db.execute(
-            select(Bill).options(joinedload(Bill.category)).where(Bill.id == bill_id, Bill.user_id == user_id)
+            select(Bill).options(joinedload(Bill.category)).where(Bill.id == bill_id, Bill.user_id == user_id, Bill.deleted_at.is_(None))
         )
         bill = result.unique().scalar_one_or_none()
         if not bill:
@@ -39,7 +40,7 @@ class BillService:
 
     async def update(self, user_id: str, bill_id: str, data: BillUpdate) -> dict:
         result = await self.db.execute(
-            select(Bill).options(joinedload(Bill.category)).where(Bill.id == bill_id, Bill.user_id == user_id)
+            select(Bill).options(joinedload(Bill.category)).where(Bill.id == bill_id, Bill.user_id == user_id, Bill.deleted_at.is_(None))
         )
         bill = result.unique().scalar_one_or_none()
         if not bill:
@@ -52,14 +53,12 @@ class BillService:
 
     async def delete(self, user_id: str, bill_id: str) -> bool:
         result = await self.db.execute(
-            select(Bill).where(Bill.id == bill_id, Bill.user_id == user_id)
+            select(Bill).where(Bill.id == bill_id, Bill.user_id == user_id, Bill.deleted_at.is_(None))
         )
         bill = result.scalar_one_or_none()
         if not bill:
             raise HTTPException(status_code=404, detail="Bill not found")
-        if bill.file_path and os.path.exists(bill.file_path):
-            os.remove(bill.file_path)
-        await self.db.delete(bill)
+        bill.deleted_at = datetime.now(timezone.utc)
         await self.db.flush()
         return True
 

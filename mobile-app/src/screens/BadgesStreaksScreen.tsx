@@ -2,7 +2,8 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, RefreshControl, TouchableOpacity } from 'react-native';
 import { spacing, radius, fontSize, fontWeight, shadow } from '../theme/tokens';
 import { useTheme } from '../theme/ThemeContext';
-import { useOfflineList, useOfflineItem } from '../hooks/useOfflineData';
+import { useOfflineList } from '../hooks/useOfflineData';
+import { useDashboardSummary } from '../hooks/useDashboardSummary';
 import { useHaptics } from '../hooks/useHaptics';
 import { CardSkeleton } from '../components/ui/SkeletonLoader';
 import { BADGES, getUnlockedBadges, getProgress } from '../data/badges';
@@ -13,7 +14,7 @@ type Tab = 'badges' | 'streaks';
 export default function BadgesStreaksScreen() {
   const { colors } = useTheme();
   const { light: hapticLight, success: hapticSuccess } = useHaptics();
-  const { data: summary, loading, refresh } = useOfflineItem('dashboard_summary', 'current');
+  const { summary, loading, refresh } = useDashboardSummary();
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('badges');
   const [showConfetti, setShowConfetti] = useState(false);

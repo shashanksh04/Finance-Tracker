@@ -4,6 +4,7 @@ import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/dat
 import { spacing, radius, fontSize, fontWeight } from '../theme/tokens';
 import { useTheme } from '../theme/ThemeContext';
 import LocationPicker from './LocationPicker';
+import { getCurrencySymbol } from '../utils/format';
 
 type InputType = 'text' | 'currency' | 'date' | 'location' | 'textarea';
 
@@ -17,7 +18,7 @@ interface SmartInputSuiteProps {
   currencySymbol?: string;
 }
 
-export default function SmartInputSuite({ label, value, onChange, type = 'text', placeholder, error, currencySymbol = '₹' }: SmartInputSuiteProps) {
+export default function SmartInputSuite({ label, value, onChange, type = 'text', placeholder, error, currencySymbol = getCurrencySymbol() }: SmartInputSuiteProps) {
   const { colors } = useTheme();
   const [showPicker, setShowPicker] = useState(false);
 

@@ -1,6 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { queryAll } from '../database';
+import { formatCurrency } from '../utils/format';
 
 const CHANNEL_ID = 'finance-tracker';
 
@@ -61,7 +62,7 @@ async function scheduleBillReminders(): Promise<void> {
           identifier: `bill-${bill.id}`,
           content: {
             title: 'Bill Due Soon',
-            body: `${bill.name} — ₹${Number(bill.amount).toLocaleString('en-IN')} due in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}`,
+            body: `${bill.name} — ${formatCurrency(Number(bill.amount))} due in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}`,
             data: { type: 'bill', billId: bill.id },
           },
           trigger: { date: remindAt },
@@ -84,7 +85,7 @@ async function scheduleBudgetAlerts(): Promise<void> {
           identifier: `budget-${budget.id}`,
           content: {
             title: 'Budget Nearly Exhausted',
-            body: `${Math.round(pct)}% of ₹${Number(budget.amount).toLocaleString('en-IN')} used`,
+            body: `${Math.round(pct)}% of ${formatCurrency(Number(budget.amount))} used`,
             data: { type: 'budget', budgetId: budget.id, percentage: pct },
           },
           trigger: { seconds: 3 },
@@ -94,7 +95,7 @@ async function scheduleBudgetAlerts(): Promise<void> {
           identifier: `budget-${budget.id}-exceeded`,
           content: {
             title: 'Budget Exceeded',
-            body: `Budget of ₹${Number(budget.amount).toLocaleString('en-IN')} has been exceeded`,
+            body: `Budget of ${formatCurrency(Number(budget.amount))} has been exceeded`,
             data: { type: 'budget_exceeded', budgetId: budget.id },
           },
           trigger: { seconds: 3 },
@@ -117,7 +118,7 @@ async function scheduleGoalMilestones(): Promise<void> {
           identifier: `goal-${goal.id}`,
           content: {
             title: 'Goal Progress',
-            body: `${Math.round(pct)}% of "${goal.name}" — ₹${Number(goal.current_amount).toLocaleString('en-IN')} of ₹${Number(goal.target_amount).toLocaleString('en-IN')}`,
+            body: `${Math.round(pct)}% of "${goal.name}" — ${formatCurrency(Number(goal.current_amount))} of ${formatCurrency(Number(goal.target_amount))}`,
             data: { type: 'goal', goalId: goal.id, percentage: pct },
           },
           trigger: { seconds: 3 },
@@ -127,7 +128,7 @@ async function scheduleGoalMilestones(): Promise<void> {
           identifier: `goal-${goal.id}-complete`,
           content: {
             title: 'Goal Achieved!',
-            body: `Congratulations! You reached your "${goal.name}" goal of ₹${Number(goal.target_amount).toLocaleString('en-IN')}`,
+            body: `Congratulations! You reached your "${goal.name}" goal of ${formatCurrency(Number(goal.target_amount))}`,
             data: { type: 'goal_complete', goalId: goal.id },
           },
           trigger: { seconds: 3 },
@@ -149,7 +150,7 @@ async function scheduleLowBalanceAlerts(): Promise<void> {
           identifier: `balance-${account.id}`,
           content: {
             title: 'Negative Balance',
-            body: `${account.name} is at ₹${Number(account.balance).toLocaleString('en-IN')}`,
+            body: `${account.name} is at ${formatCurrency(Number(account.balance))}`,
             data: { type: 'low_balance', accountId: account.id, balance: account.balance },
           },
           trigger: { seconds: 3 },
@@ -159,7 +160,7 @@ async function scheduleLowBalanceAlerts(): Promise<void> {
           identifier: `balance-${account.id}-low`,
           content: {
             title: 'Low Balance',
-            body: `${account.name} is running low: ₹${Number(account.balance).toLocaleString('en-IN')}`,
+            body: `${account.name} is running low: ${formatCurrency(Number(account.balance))}`,
             data: { type: 'low_balance', accountId: account.id, balance: account.balance },
           },
           trigger: { seconds: 3 },

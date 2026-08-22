@@ -8,6 +8,7 @@ import { TABLES } from '../database/schema';
 import { useTheme } from '../theme/ThemeContext';
 import { spacing, radius, fontSize, fontWeight, shadow } from '../theme/tokens';
 import type { Account } from '../types';
+import { formatCurrency, getCurrencySymbol } from '../utils/format';
 
 interface SplitLine {
   accountId: string;
@@ -131,7 +132,7 @@ export default function QuickSplitScreen({ navigation }: any) {
       />
       <Text style={styles.label}>Total Amount</Text>
       <View style={styles.totalInputRow}>
-        <Text style={styles.totalPrefix}>₹</Text>
+        <Text style={styles.totalPrefix}>{getCurrencySymbol()}</Text>
         <TextInput
           style={[styles.input, { flex: 1 }]}
           value={totalAmount}
@@ -166,7 +167,7 @@ export default function QuickSplitScreen({ navigation }: any) {
           </ScrollView>
           <Text style={styles.label}>Amount</Text>
           <View style={styles.totalInputRow}>
-            <Text style={styles.totalPrefix}>₹</Text>
+            <Text style={styles.totalPrefix}>{getCurrencySymbol()}</Text>
             <TextInput
               style={[styles.input, { flex: 1 }]}
               value={split.amount}
@@ -187,12 +188,12 @@ export default function QuickSplitScreen({ navigation }: any) {
       <View style={styles.summaryRow}>
         <View>
           <Text style={styles.summaryLabel}>Total Split</Text>
-          <Text style={[styles.summaryValue, { color: colors.text }]}>₹{totalSplit.toFixed(2)}</Text>
+          <Text style={[styles.summaryValue, { color: colors.text }]}>{formatCurrency(totalSplit)}</Text>
         </View>
         <View style={{ alignItems: 'flex-end' }}>
           <Text style={styles.summaryLabel}>Target</Text>
           <Text style={[styles.summaryValue, Math.abs(totalSplit - (parseFloat(totalAmount) || 0)) < 0.01 ? styles.summaryMatch : styles.summaryMismatch]}>
-            ₹{(parseFloat(totalAmount) || 0).toFixed(2)}
+            {formatCurrency(parseFloat(totalAmount) || 0)}
           </Text>
         </View>
       </View>

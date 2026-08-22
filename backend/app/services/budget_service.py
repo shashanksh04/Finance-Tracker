@@ -1,11 +1,11 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_
 from sqlalchemy.orm import joinedload
+from datetime import date, datetime, timezone
 from app.models.budget import Budget
 from app.models.transaction import Transaction
 from app.schemas.budget import BudgetCreate, BudgetUpdate
 from fastapi import HTTPException, status
-from datetime import date, datetime
 
 
 class BudgetService:
@@ -26,7 +26,7 @@ class BudgetService:
     async def get_all(self, user_id: str, active_only: bool = False, page: int = 0, page_size: int = 0) -> list[dict] | dict:
         query = select(Budget).options(
             joinedload(Budget.category),
-        ).where(Budget.user_id == user_id)
+        ).where(Budget.user_id == user_id, Budget.deleted_at.is_(None))
         if active_only:
             query = query.where(Budget.is_active == True)
         query = query.order_by(Budget.created_at.desc())
@@ -51,7 +51,7 @@ class BudgetService:
         result = await self.db.execute(
             select(Budget).options(
                 joinedload(Budget.category),
-            ).where(Budget.id == budget_id, Budget.user_id == user_id)
+            ).where(Budget.id == budget_id, Budget.user_id == user_id, Budget.deleted_at.is_(None))
         )
         budget = result.unique().scalar_one_or_none()
         if not budget:
@@ -63,7 +63,7 @@ class BudgetService:
         result = await self.db.execute(
             select(Budget).options(
                 joinedload(Budget.category),
-            ).where(Budget.id == budget_id, Budget.user_id == user_id)
+            ).where(Budget.id == budget_id, Budget.user_id == user_id, Budget.deleted_at.is_(None))
         )
         budget = result.unique().scalar_one_or_none()
         if not budget:
@@ -80,12 +80,12 @@ class BudgetService:
 
     async def delete(self, user_id: str, budget_id: str) -> bool:
         result = await self.db.execute(
-            select(Budget).where(Budget.id == budget_id, Budget.user_id == user_id)
+            select(Budget).where(Budget.id == budget_id, Budget.user_id == user_id, Budget.deleted_at.is_(None))
         )
         budget = result.scalar_one_or_none()
         if not budget:
             raise HTTPException(status_code=404, detail="Budget not found")
-        await self.db.delete(budget)
+        budget.deleted_at = datetime.now(timezone.utc)
         await self.db.flush()
         return True
 
@@ -128,6 +128,7 @@ class BudgetService:
                     Transaction.type == "expense",
                     Transaction.date >= r_start,
                     Transaction.date < r_end,
+                    Transaction.deleted_at.is_(None),
                     Transaction.category_id.in_(cat_ids),
                 )
                 .group_by(Transaction.category_id)
@@ -146,6 +147,7 @@ class BudgetService:
                     Transaction.type == "expense",
                     Transaction.date >= r_start,
                     Transaction.date < r_end,
+                    Transaction.deleted_at.is_(None),
                 )
             )
             uncat_spent_map[(r_start, r_end)] = float(row.scalar() or 0)

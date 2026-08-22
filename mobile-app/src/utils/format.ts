@@ -1,11 +1,55 @@
-export function formatCurrency(amount: number, currency = 'INR'): string {
-  const formatter = new Intl.NumberFormat('en-IN', {
+import { usePreferencesStore } from '../stores/preferencesStore';
+
+const CURRENCY_LOCALE: Record<string, string> = {
+  INR: 'en-IN',
+  USD: 'en-US',
+  EUR: 'de-DE',
+  GBP: 'en-GB',
+  JPY: 'ja-JP',
+  CAD: 'en-CA',
+  AUD: 'en-AU',
+  SGD: 'en-SG',
+  CHF: 'de-CH',
+  CNY: 'zh-CN',
+};
+
+export const CURRENCY_SYMBOLS: Record<string, string> = {
+  USD: '$',
+  EUR: '€',
+  GBP: '£',
+  INR: '₹',
+  JPY: '¥',
+  CAD: 'C$',
+  AUD: 'A$',
+  SGD: 'S$',
+  CHF: 'Fr',
+  CNY: '¥',
+};
+
+function getPrefsCurrency(): string {
+  try {
+    return usePreferencesStore.getState().prefs.currency || 'INR';
+  } catch {
+    return 'INR';
+  }
+}
+
+export function formatCurrency(amount: number, currency?: string): string {
+  const cur = currency || getPrefsCurrency();
+  const locale = CURRENCY_LOCALE[cur] || 'en-US';
+  const frac = cur === 'JPY' ? 0 : 2;
+  const formatter = new Intl.NumberFormat(locale, {
     style: 'currency',
-    currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    currency: cur,
+    minimumFractionDigits: frac,
+    maximumFractionDigits: frac,
   });
   return formatter.format(amount);
+}
+
+export function getCurrencySymbol(currency?: string): string {
+  const cur = currency || getPrefsCurrency();
+  return CURRENCY_SYMBOLS[cur] || '$';
 }
 
 export function formatDate(date: string | Date): string {

@@ -144,12 +144,13 @@ class CopilotService:
             )
         )
         monthly_expense = float(r.scalar() or 0)
+        sym = get_currency_symbol(self.user)
 
         prompt = (
             f"You are a financial advisor. The user is considering spending "
             f"{request.amount:.2f} on '{request.scenario}' "
             f"in the '{request.category or 'general'}' category ({request.timeframe}).\n\n"
-            f"Current monthly expenses: ₹{monthly_expense:.2f}\n\n"
+            f"Current monthly expenses: {sym}{monthly_expense:.2f}\n\n"
             f"Provide:\n1. Impact analysis\n2. 3-5 recommendations\n"
             f"3. Risk level (low/medium/high)\n4. Projected outcome in JSON\n\n"
             f"Be realistic and actionable."

@@ -6,7 +6,7 @@ import { useSyncStore } from '../stores/syncStore';
 import { usePreferencesStore } from '../stores/preferencesStore';
 import { formatRelativeTime } from '../utils/format';
 import { shareText, formatSummaryShare } from '../services/share';
-import { useOfflineItem } from '../hooks/useOfflineData';
+import { useDashboardSummary } from '../hooks/useDashboardSummary';
 import { calculatePersonality } from '../data/personalities';
 import PersonalityCard from '../components/PersonalityCard';
 import AdaptiveSheet from '../components/AdaptiveSheet';
@@ -50,7 +50,7 @@ export default function SystemScreen() {
   const { user, logout } = useAuthStore();
   const { status, lastSyncedAt, pendingChanges, error: syncError, performSync } = useSyncStore();
   const { prefs, update } = usePreferencesStore();
-  const { data: summary } = useOfflineItem('dashboard_summary', 'current');
+  const { summary } = useDashboardSummary();
 
   // Chat state (inline Copilot)
   const [chatExpanded, setChatExpanded] = useState(false);
@@ -295,7 +295,7 @@ export default function SystemScreen() {
         <Text style={styles.sectionTitle}>Quick Settings</Text>
         <View style={styles.row}>
           <Text style={styles.rowLabel}>Dark Mode</Text>
-          <Switch value={isDark} onValueChange={(v) => { setDark(v); update({ darkMode: v }); }} trackColor={{ false: colors.border, true: colors.primaryLight }} thumbColor={isDark ? colors.primary : colors.textTertiary} accessibilityLabel="Dark Mode" />
+          <Switch value={isDark} onValueChange={(v) => { setDark(v); }} trackColor={{ false: colors.border, true: colors.primaryLight }} thumbColor={isDark ? colors.primary : colors.textTertiary} accessibilityLabel="Dark Mode" />
         </View>
         <View style={styles.row}>
           <Text style={styles.rowLabel}>Notifications</Text>

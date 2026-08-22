@@ -7,6 +7,7 @@ from app.models.goal import Goal
 from app.models.memory import FinancialMemory
 from app.embeddings.embedding_service import EmbeddingService
 from app.core.config import settings
+from app.core.currency import get_currency_symbol
 
 
 async def run_insights(db: AsyncSession, user_id: str, user, messages: list):
@@ -31,6 +32,7 @@ async def run_insights(db: AsyncSession, user_id: str, user, messages: list):
         income = float(income_r.scalar() or 0)
         expense = float(expense_r.scalar() or 0)
         surplus = income - expense
+        sym = get_currency_symbol(user)
 
         goal_r = await db.execute(
             select(Goal).where(Goal.user_id == user_id, Goal.status == "active")
@@ -49,13 +51,13 @@ async def run_insights(db: AsyncSession, user_id: str, user, messages: list):
                     suggested = round(remaining / days * 30, 2)
             line = f"{g.name}: {current:.0f}/{target:.0f}"
             if suggested:
-                line += f" need ₹{suggested:.0f}/mo"
+                line += f" need {sym}{suggested:.0f}/mo"
             goal_lines.append(line)
 
-        context = f"This month: income ₹{income:.2f}, expenses ₹{expense:.2f}"
+        context = f"This month: income {sym}{income:.2f}, expenses {sym}{expense:.2f}"
         if goal_lines:
             context += "\nGoals: " + "; ".join(goal_lines)
-        context += f"\nMonthly surplus: ₹{surplus:.2f}"
+        context += f"\nMonthly surplus: {sym}{surplus:.2f}"
 
         import httpx
         async with httpx.AsyncClient(timeout=30) as client:

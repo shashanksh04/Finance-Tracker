@@ -5,6 +5,7 @@ from app.models.category import Category
 from datetime import date, timedelta
 from typing import Optional
 import math
+from app.core.currency import CURRENCY_SYMBOLS
 
 
 class AnalysisService:
@@ -70,17 +71,17 @@ class AnalysisService:
         }
 
     async def _sum_with_filter(self, where_clauses) -> float:
-        query = select(func.coalesce(func.sum(Transaction.amount), 0)).where(and_(*where_clauses))
+        query = select(func.coalesce(func.sum(Transaction.amount), 0)).where(and_(*where_clauses), Transaction.deleted_at.is_(None))
         result = await self.db.execute(query)
         return float(result.scalar() or 0)
 
     async def _count_with_filter(self, where_clauses) -> int:
-        query = select(func.count(Transaction.id)).where(and_(*where_clauses))
+        query = select(func.count(Transaction.id)).where(and_(*where_clauses), Transaction.deleted_at.is_(None))
         result = await self.db.execute(query)
         return result.scalar() or 0
 
     async def _category_breakdown(self, user_id: str, start: date, end: date, account_id: str = None) -> list:
-        where = [Transaction.user_id == user_id, Transaction.date >= start, Transaction.date < end, Transaction.type == "expense"]
+        where = [Transaction.user_id == user_id, Transaction.date >= start, Transaction.date < end, Transaction.type == "expense", Transaction.deleted_at.is_(None)]
         if account_id:
             where.append(Transaction.account_id == account_id)
         query = select(
@@ -159,13 +160,14 @@ class AnalysisService:
             Transaction.date < end,
             Transaction.merchant.isnot(None),
             Transaction.merchant != "",
+            Transaction.deleted_at.is_(None),
         ).group_by(Transaction.merchant).order_by(func.sum(Transaction.amount).desc()).limit(10)
         result = await self.db.execute(query)
         return [{"merchant": r.merchant, "total": round(float(r.total), 2), "count": r.count} for r in result.all()]
 
     def _generate_insights(self, income: float, expenses: float, net: float, breakdown: list, currency: str = "USD") -> list:
         insights = []
-        sym = {"USD": "$", "EUR": "€", "GBP": "£", "INR": "₹", "JPY": "¥", "CAD": "C$", "AUD": "A$", "SGD": "S$", "CHF": "Fr", "CNY": "¥"}.get(currency, "$")
+        sym = CURRENCY_SYMBOLS.get(currency, "$")
         if net > 0:
             insights.append(f"You saved {sym}{net:.2f} this period ({round(net/income*100,1)}% savings rate)")
         else:
@@ -199,12 +201,13 @@ class AnalysisService:
         from app.models.budget import Budget
         from sqlalchemy.orm import joinedload
         budget_result = await self.db.execute(
-            select(Budget).options(joinedload(Budget.category)).where(Budget.user_id == user_id, Budget.is_active == True)
+            select(Budget).options(joinedload(Budget.category)).where(Budget.user_id == user_id, Budget.is_active == True, Budget.deleted_at.is_(None))
         )
         budgets = list(budget_result.unique().scalars().all())
         budget_health = []
         if budgets:
             cat_ids = [b.category_id for b in budgets if b.category_id]
+            spent_map = {}
             if cat_ids:
                 spent_rows = await self.db.execute(
                     select(Transaction.category_id, func.coalesce(func.sum(Transaction.amount), 0).label("total"))
@@ -213,37 +216,49 @@ class AnalysisService:
                         Transaction.date >= month_start,
                         Transaction.date < month_end,
                         Transaction.type == "expense",
+                        Transaction.deleted_at.is_(None),
                         Transaction.category_id.in_(cat_ids),
                     )
                     .group_by(Transaction.category_id)
                 )
                 spent_map = {row.category_id: float(row.total) for row in spent_rows.all()}
-            else:
-                spent_map = {}
+            overall_spent = 0.0
+            if any(b.category_id is None for b in budgets):
+                overall_result = await self.db.execute(
+                    select(func.coalesce(func.sum(Transaction.amount), 0))
+                    .where(
+                        Transaction.user_id == user_id,
+                        Transaction.date >= month_start,
+                        Transaction.date < month_end,
+                        Transaction.type == "expense",
+                        Transaction.deleted_at.is_(None),
+                    )
+                )
+                overall_spent = float(overall_result.scalar() or 0)
             for b in budgets:
-                spent = spent_map.get(b.category_id, 0)
+                spent = spent_map.get(b.category_id, 0) if b.category_id else overall_spent
                 pct = round(float(spent) / float(b.amount) * 100, 1) if float(b.amount) > 0 else 0
-                budget_health.append({"category": b.category.name if b.category else "Overall", "budgeted": float(b.amount), "spent": spent, "percentage": pct})
+                budget_health.append({"category": b.category.name if b.category else "Overall", "budgeted": float(b.amount), "spent": round(spent, 2), "percentage": pct})
 
         txn_result = await self.db.execute(
-            select(Transaction).where(Transaction.user_id == user_id).order_by(Transaction.date.desc()).limit(10)
+            select(Transaction).where(Transaction.user_id == user_id, Transaction.deleted_at.is_(None)).order_by(Transaction.date.desc()).limit(10)
         )
         recent = [{"id": t.id, "description": t.description, "amount": float(t.amount), "type": t.type, "date": t.date.isoformat()} for t in txn_result.scalars().all()]
 
         from app.models.bill import Bill
         bill_result = await self.db.execute(
-            select(Bill).where(Bill.user_id == user_id, Bill.is_paid == False).order_by(Bill.due_date).limit(10)
+            select(Bill).where(Bill.user_id == user_id, Bill.is_paid == False, Bill.deleted_at.is_(None)).order_by(Bill.due_date).limit(10)
         )
         upcoming = [{"id": b.id, "name": b.name, "amount": float(b.amount), "due_date": b.due_date.isoformat()} for b in bill_result.scalars().all()]
 
         from app.models.alert import Alert
         alert_result = await self.db.execute(
-            select(Alert).where(Alert.user_id == user_id, Alert.is_dismissed == False, Alert.is_read == False).order_by(Alert.created_at.desc()).limit(10)
+            select(Alert).where(Alert.user_id == user_id, Alert.is_dismissed == False, Alert.is_read == False, Alert.deleted_at.is_(None)).order_by(Alert.created_at.desc()).limit(10)
         )
         alerts_list = [{"id": a.id, "type": a.type, "title": a.title, "severity": a.severity, "message": a.message, "created_at": a.created_at.isoformat()} for a in alert_result.scalars().all()]
 
         from app.models.goal import Goal
-        goal_result = await self.db.execute(select(Goal).where(Goal.user_id == user_id, Goal.status == "active"))
+        goal_result = await self.db.execute(select(Goal).where(Goal.user_id == user_id, Goal.status == "active", Goal.deleted_at.is_(None)))
         goals = [{"id": g.id, "name": g.name, "progress": round(float(g.current_amount)/float(g.target_amount)*100, 1) if float(g.target_amount) > 0 else 0} for g in goal_result.scalars().all()]
 
         return {

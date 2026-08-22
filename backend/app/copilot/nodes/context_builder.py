@@ -9,12 +9,14 @@ from app.models.budget import Budget
 from app.models.goal import Goal
 from app.models.bill import Bill
 from app.copilot.state import CopilotState
+from app.core.currency import get_currency_symbol
 
 
 def make_context_builder(db: AsyncSession, user):
     async def context_builder(state: CopilotState) -> dict:
         user_id = state["user_id"]
         name = user.full_name if user and user.full_name else "there"
+        sym = get_currency_symbol(user)
         today = date.today()
         month_start = today.replace(day=1)
         month_end = (month_start + timedelta(days=32)).replace(day=1)
@@ -89,34 +91,46 @@ def make_context_builder(db: AsyncSession, user):
                         suggested = round(remaining / days * 30, 2)
                 line = f"  - {g.name}: {current:.2f} / {target:.2f} ({g.status})"
                 if suggested:
-                    line += f" [need ₹{suggested:.2f}/month to meet deadline]"
+                    line += f" [need {sym}{suggested:.2f}/month to meet deadline]"
                 lines.append(line)
             return "\n".join(lines)
 
         async def _bills():
-            r = await db.execute(select(Bill).where(Bill.user_id == user_id, Bill.is_paid == False).order_by(Bill.due_date).limit(10))
+            r = await db.execute(select(Bill).where(Bill.user_id == user_id, Bill.is_paid == False, Bill.deleted_at.is_(None)).order_by(Bill.due_date).limit(10))
             bills = r.scalars().all()
             if not bills:
                 return "No upcoming bills."
             return "\n".join(f"  - {b.name}: {float(b.amount):.2f} due {b.due_date}" for b in bills)
 
-        cm_income, cm_expense, lm_income, lm_expense, accts, budgets, goals, bills, cm_cats, lm_cats = await asyncio.gather(
+        async def _memories():
+            try:
+                from app.copilot.rag_engine import RAGEngine
+                engine = RAGEngine(db)
+                results = await engine.hybrid_search(state["message"], user_id, top_k=4)
+                return engine.format_context(results)
+            except Exception:
+                return ""
+
+        cm_income, cm_expense, lm_income, lm_expense, accts, budgets, goals, bills, cm_cats, lm_cats, memories = await asyncio.gather(
             _income_period(month_start, month_end), _expense_period(month_start, month_end),
             _income_period(last_month_start, last_month_end), _expense_period(last_month_start, last_month_end),
             _accounts(), _budgets(), _goals(), _bills(),
             _top_categories(month_start, month_end), _top_categories(last_month_start, last_month_end),
+            _memories(),
         )
 
         parts = [
             f"User: {name}",
             accts,
-            f"This month ({month_start} to {today}): income ₹{cm_income:.2f}, expenses ₹{cm_expense:.2f}",
-            f"Last month ({last_month_start} to {last_month_end}): income ₹{lm_income:.2f}, expenses ₹{lm_expense:.2f}",
+            f"This month ({month_start} to {today}): income {sym}{cm_income:.2f}, expenses {sym}{cm_expense:.2f}",
+            f"Last month ({last_month_start} to {last_month_end}): income {sym}{lm_income:.2f}, expenses {sym}{lm_expense:.2f}",
             f"Top categories this month: {cm_cats}",
             f"Top categories last month: {lm_cats}",
             budgets,
             goals,
             bills,
         ]
+        if memories:
+            parts.append(memories)
         return {"financial_context": "\n".join(parts)}
     return context_builder
