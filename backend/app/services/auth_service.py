@@ -111,9 +111,9 @@ class AuthService:
         if data.full_name is not None:
             user.full_name = data.full_name
         if data.settings is not None:
-            if user.settings is None:
-                user.settings = {}
-            user.settings.update(data.settings)
+            current = dict(user.settings or {})
+            current.update(data.settings)
+            user.settings = current
         await self.db.flush()
         return user
 
