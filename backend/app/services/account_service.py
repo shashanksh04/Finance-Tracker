@@ -108,7 +108,7 @@ class AccountService:
         total_income = income_result.scalar() or 0
         total_expenses = expense_result.scalar() or 0
         transaction_count = count_result.scalar() or 0
-        balance = float(account.balance or 0) + float(total_income) - float(total_expenses)
+        balance = float(account.balance or 0)
         return {
             **{c.name: getattr(account, c.name) for c in account.__table__.columns},
             "balance": round(balance, 2),
@@ -118,25 +118,7 @@ class AccountService:
         }
 
     async def _enrich_batch(self, accounts: list[Account]) -> list[Account]:
-        if not accounts:
-            return accounts
-        ids = [a.id for a in accounts]
-        income_rows = await self.db.execute(
-            select(Transaction.account_id, func.coalesce(func.sum(Transaction.amount), 0).label("total"))
-            .where(Transaction.account_id.in_(ids), Transaction.type == "income", Transaction.deleted_at.is_(None))
-            .group_by(Transaction.account_id)
-        )
-        expense_rows = await self.db.execute(
-            select(Transaction.account_id, func.coalesce(func.sum(Transaction.amount), 0).label("total"))
-            .where(Transaction.account_id.in_(ids), Transaction.type == "expense", Transaction.deleted_at.is_(None))
-            .group_by(Transaction.account_id)
-        )
-        income_map = {row.account_id: float(row.total) for row in income_rows.all()}
-        expense_map = {row.account_id: float(row.total) for row in expense_rows.all()}
-        for a in accounts:
-            opening_balance = float(a.balance or 0)
-            income = income_map.get(a.id, 0)
-            expense = expense_map.get(a.id, 0)
-            net = opening_balance + income - expense
-            setattr(a, 'balance', round(net, 2))
+        # IMPORTANT: never mutate the persistent `balance` column here.
+        # `balance` is a maintained running total (see transaction_service),
+        # so we return the accounts as-is to avoid corrupting stored values.
         return accounts

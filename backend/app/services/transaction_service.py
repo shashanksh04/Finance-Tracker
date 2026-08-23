@@ -15,8 +15,9 @@ class TransactionService:
         self.db = db
 
     async def create(self, user_id: str, data: TransactionCreate) -> Transaction:
-        account = await self.db.execute(select(Account).where(Account.id == data.account_id, Account.user_id == user_id, Account.deleted_at.is_(None)))
-        if not account.scalar_one_or_none():
+        result = await self.db.execute(select(Account).where(Account.id == data.account_id, Account.user_id == user_id, Account.deleted_at.is_(None)))
+        account = result.scalar_one_or_none()
+        if not account:
             raise HTTPException(status_code=404, detail="Account not found")
         category_id = data.category_id
         if not category_id:
@@ -34,6 +35,11 @@ class TransactionService:
         txn_data["category_id"] = category_id
         txn = Transaction(user_id=user_id, **txn_data)
         self.db.add(txn)
+        amount = float(data.amount) if data.amount is not None else 0.0
+        if data.type == "income":
+            account.balance = float(account.balance or 0) + amount
+        else:
+            account.balance = float(account.balance or 0) - amount
         await self.db.flush()
         return await self._load_relations(txn)
 
@@ -123,9 +129,20 @@ class TransactionService:
         txn = result.scalar_one_or_none()
         if not txn:
             raise HTTPException(status_code=404, detail="Transaction not found")
+        old_amount = float(txn.amount)
+        old_type = txn.type
+        old_account_id = txn.account_id
         for field, value in data.model_dump(exclude_unset=True).items():
             if value is not None:
                 setattr(txn, field, value)
+        if old_account_id:
+            old_account = await self.db.get(Account, old_account_id)
+            if old_account:
+                old_account.balance = float(old_account.balance or 0) + (old_amount if old_type == "expense" else -old_amount)
+        new_account = await self.db.get(Account, txn.account_id)
+        if new_account:
+            amt = float(txn.amount)
+            new_account.balance = float(new_account.balance or 0) + (amt if txn.type == "income" else -amt)
         await self.db.flush()
         return await self._enrich(txn)
 
@@ -137,6 +154,10 @@ class TransactionService:
         if not txn:
             raise HTTPException(status_code=404, detail="Transaction not found")
         txn.deleted_at = datetime.now(timezone.utc)
+        account = await self.db.get(Account, txn.account_id)
+        if account:
+            amt = float(txn.amount)
+            account.balance = float(account.balance or 0) + (amt if txn.type == "expense" else -amt)
         await self.db.flush()
         return True
 
