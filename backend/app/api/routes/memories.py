@@ -25,7 +25,7 @@ async def create_memory(data: MemoryCreate, user: User = Depends(get_current_use
 @router.get("/{memory_id}", response_model=MemoryResponse)
 async def get_memory(memory_id: str, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     service = MemoryService(db)
-    return await service.get_by_key(user.id, memory_id)
+    return await service.get_by_id(user.id, memory_id)
 
 
 @router.put("/{memory_id}", response_model=MemoryResponse)

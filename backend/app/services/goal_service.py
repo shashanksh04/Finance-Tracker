@@ -3,6 +3,7 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import joinedload
 from datetime import date, datetime, timezone
 from app.models.goal import Goal
+from app.models.category import Category
 from app.schemas.goal import GoalCreate, GoalUpdate
 from fastapi import HTTPException, status
 
@@ -15,7 +16,7 @@ class GoalService:
         goal = Goal(user_id=user_id, **data.model_dump())
         self.db.add(goal)
         await self.db.flush()
-        await self.db.refresh(goal, ['category'])
+        await self.db.refresh(goal)
         return await self._enrich(goal)
 
     async def get_all(self, user_id: str, status_filter: str = None, page: int = 0, page_size: int = 0) -> list[dict] | dict:
@@ -59,7 +60,7 @@ class GoalService:
         for field, value in data.model_dump(exclude_unset=True).items():
             setattr(goal, field, value)
         await self.db.flush()
-        await self.db.refresh(goal, ['category'])
+        await self.db.refresh(goal)
         return await self._enrich(goal)
 
     async def delete(self, user_id: str, goal_id: str) -> bool:
@@ -69,7 +70,7 @@ class GoalService:
         goal = result.scalar_one_or_none()
         if not goal:
             raise HTTPException(status_code=404, detail="Goal not found")
-        goal.deleted_at = datetime.now(timezone.utc)
+        goal.deleted_at = datetime.now(timezone.utc).replace(tzinfo=None)
         await self.db.flush()
         return True
 
@@ -86,8 +87,10 @@ class GoalService:
                 remaining = target - current
                 suggested = round(remaining / days_remaining * 30, 2) if remaining > 0 else 0
         cat_name = None
-        if goal.category:
-            cat_name = goal.category.name
+        if goal.category_id:
+            cat = await self.db.get(Category, goal.category_id)
+            if cat:
+                cat_name = cat.name
         return {
             "id": goal.id,
             "user_id": goal.user_id,

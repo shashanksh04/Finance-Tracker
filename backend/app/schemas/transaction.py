@@ -31,6 +31,7 @@ class TransactionResponse(BaseModel):
     account_name: str = ""
     user_id: str
     category_id: Optional[str] = None
+    auto_rule_id: Optional[str] = None
     category_name: Optional[str] = None
     category_icon: Optional[str] = None
     category_color: Optional[str] = None

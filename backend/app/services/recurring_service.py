@@ -4,6 +4,8 @@ from sqlalchemy.orm import joinedload
 from datetime import date, datetime, timezone, timedelta
 import calendar
 from app.models.recurring import RecurringTransaction
+from app.models.account import Account
+from app.models.category import Category
 from app.schemas.recurring import RecurringCreate, RecurringUpdate
 from fastapi import HTTPException, status
 
@@ -18,7 +20,7 @@ class RecurringService:
         recurring = RecurringTransaction(user_id=user_id, type=data.type, **kwargs)
         self.db.add(recurring)
         await self.db.flush()
-        await self.db.refresh(recurring, ['account', 'category'])
+        await self.db.refresh(recurring)
         return await self._enrich(recurring)
 
     async def get_all(self, user_id: str, active_only: bool = False) -> list[dict]:
@@ -64,7 +66,7 @@ class RecurringService:
         item = result.scalar_one_or_none()
         if not item:
             raise HTTPException(status_code=404, detail="Recurring transaction not found")
-        item.deleted_at = datetime.now(timezone.utc)
+        item.deleted_at = datetime.now(timezone.utc).replace(tzinfo=None)
         await self.db.flush()
         return True
 
@@ -124,10 +126,14 @@ class RecurringService:
     async def _enrich(self, item: RecurringTransaction) -> dict:
         account_name = ""
         category_name = None
-        if item.account:
-            account_name = item.account.name
-        if item.category:
-            category_name = item.category.name
+        if item.account_id:
+            acc = await self.db.get(Account, item.account_id)
+            if acc:
+                account_name = acc.name
+        if item.category_id:
+            cat = await self.db.get(Category, item.category_id)
+            if cat:
+                category_name = cat.name
         return {
             "id": item.id,
             "user_id": item.user_id,

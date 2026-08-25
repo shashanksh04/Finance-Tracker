@@ -20,28 +20,33 @@ class TransactionService:
         if not account:
             raise HTTPException(status_code=404, detail="Account not found")
         category_id = data.category_id
+        auto_rule_id = None
         if not category_id:
             from app.services.category_rule_service import CategoryRuleService
             rule_service = CategoryRuleService(self.db)
-            matched = await rule_service.match_transaction(
+            matched_category_id, matched_rule_id = await rule_service.match_transaction(
                 user_id,
                 data.description,
                 data.merchant,
                 float(data.amount) if data.amount is not None else None,
             )
-            if matched:
-                category_id = matched
+            if matched_category_id:
+                category_id = matched_category_id
+                auto_rule_id = matched_rule_id
         txn_data = data.model_dump()
         txn_data["category_id"] = category_id
-        txn = Transaction(user_id=user_id, **txn_data)
+        txn = Transaction(user_id=user_id, auto_rule_id=auto_rule_id, **txn_data)
         self.db.add(txn)
         amount = float(data.amount) if data.amount is not None else 0.0
         if data.type == "income":
             account.balance = float(account.balance or 0) + amount
         else:
             account.balance = float(account.balance or 0) - amount
+        if auto_rule_id:
+            from app.services.category_rule_service import CategoryRuleService
+            await CategoryRuleService(self.db).record_hit(auto_rule_id)
         await self.db.flush()
-        return await self._load_relations(txn)
+        return await self._enrich(txn)
 
     async def get_filtered(self, user_id: str, filters: TransactionFilterParams) -> dict:
         query = select(Transaction).options(joinedload(Transaction.account), joinedload(Transaction.category)).where(Transaction.user_id == user_id, Transaction.deleted_at.is_(None))
@@ -132,9 +137,13 @@ class TransactionService:
         old_amount = float(txn.amount)
         old_type = txn.type
         old_account_id = txn.account_id
+        old_category_id = txn.category_id
         for field, value in data.model_dump(exclude_unset=True).items():
             if value is not None:
                 setattr(txn, field, value)
+        if data.category_id is not None and data.category_id != old_category_id:
+            from app.services.category_rule_service import CategoryRuleService
+            await CategoryRuleService(self.db).learn_from_correction(user_id, txn, old_category_id, data.category_id)
         if old_account_id:
             old_account = await self.db.get(Account, old_account_id)
             if old_account:
@@ -144,6 +153,7 @@ class TransactionService:
             amt = float(txn.amount)
             new_account.balance = float(new_account.balance or 0) + (amt if txn.type == "income" else -amt)
         await self.db.flush()
+        await self.db.refresh(txn)
         return await self._enrich(txn)
 
     async def delete(self, user_id: str, txn_id: str) -> bool:
@@ -153,7 +163,7 @@ class TransactionService:
         txn = result.scalar_one_or_none()
         if not txn:
             raise HTTPException(status_code=404, detail="Transaction not found")
-        txn.deleted_at = datetime.now(timezone.utc)
+        txn.deleted_at = datetime.now(timezone.utc).replace(tzinfo=None)
         account = await self.db.get(Account, txn.account_id)
         if account:
             amt = float(txn.amount)
@@ -170,18 +180,23 @@ class TransactionService:
         category_name = None
         category_icon = None
         category_color = None
-        if txn.account:
-            account_name = txn.account.name
-        if txn.category:
-            category_name = txn.category.name
-            category_icon = txn.category.icon
-            category_color = txn.category.color
+        if txn.account_id:
+            acct = await self.db.get(Account, txn.account_id)
+            if acct:
+                account_name = acct.name
+        if txn.category_id:
+            cat = await self.db.get(Category, txn.category_id)
+            if cat:
+                category_name = cat.name
+                category_icon = cat.icon
+                category_color = cat.color
         return {
             "id": txn.id,
             "account_id": txn.account_id,
             "account_name": account_name,
             "user_id": txn.user_id,
             "category_id": txn.category_id,
+            "auto_rule_id": txn.auto_rule_id,
             "category_name": category_name,
             "category_icon": category_icon,
             "category_color": category_color,

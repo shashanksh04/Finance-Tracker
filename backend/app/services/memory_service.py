@@ -16,6 +16,15 @@ class MemoryService:
         await self.db.flush()
         return memory
 
+    async def get_by_id(self, user_id: str, memory_id: str) -> FinancialMemory:
+        result = await self.db.execute(
+            select(FinancialMemory).where(FinancialMemory.id == memory_id, FinancialMemory.user_id == user_id, FinancialMemory.deleted_at.is_(None))
+        )
+        memory = result.scalar_one_or_none()
+        if not memory:
+            raise HTTPException(status_code=404, detail="Memory not found")
+        return memory
+
     async def get_all(self, user_id: str, memory_type: str = None) -> list[FinancialMemory]:
         query = select(FinancialMemory).where(FinancialMemory.user_id == user_id, FinancialMemory.deleted_at.is_(None))
         if memory_type:
@@ -43,6 +52,7 @@ class MemoryService:
         for field, value in data.model_dump(exclude_unset=True).items():
             setattr(memory, field, value)
         await self.db.flush()
+        await self.db.refresh(memory)
         return memory
 
     async def delete(self, user_id: str, memory_id: str) -> bool:
@@ -52,14 +62,14 @@ class MemoryService:
         memory = result.scalar_one_or_none()
         if not memory:
             raise HTTPException(status_code=404, detail="Memory not found")
-        memory.deleted_at = datetime.now(timezone.utc)
+        memory.deleted_at = datetime.now(timezone.utc).replace(tzinfo=None)
         await self.db.flush()
         return True
 
     async def cleanup_old_memories(self, user_id: str, keep_per_type: int = 100) -> int:
         """Hard-delete soft-deleted memories and prune the oldest 'conversation'
         memories beyond ``keep_per_type`` per user to bound growth."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
         await self.db.execute(
             sa_delete(FinancialMemory).where(
                 FinancialMemory.user_id == user_id,

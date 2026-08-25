@@ -59,7 +59,7 @@ async def _cleanup():
     from datetime import datetime, timedelta, timezone
     from sqlalchemy import delete
     from app.models.alert import Alert
-    cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+    cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=30)
     async with async_session_factory() as db:
         stmt = delete(Alert).where(Alert.created_at < cutoff)
         await db.execute(stmt)

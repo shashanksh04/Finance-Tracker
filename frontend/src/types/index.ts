@@ -241,3 +241,36 @@ export interface PaginatedResponse<T> {
   page_size: number;
   total_pages: number;
 }
+
+export interface NetWorthPoint {
+  month: string;
+  label: string;
+  net_worth: number;
+  assets: number;
+  liabilities: number;
+}
+
+export interface NetWorthTrend {
+  months: number;
+  series: NetWorthPoint[];
+}
+
+export interface CalendarBill {
+  id: string;
+  name: string;
+  amount: number;
+  due_date: string;
+  is_paid?: boolean;
+}
+
+export interface CalendarData {
+  year: number;
+  month: number;
+  days: {
+    day: number;
+    income: number;
+    expense: number;
+    count: number;
+  }[];
+  bills: CalendarBill[];
+}

@@ -20,6 +20,7 @@ class Transaction(Base):
     is_recurring = Column(Boolean, default=False)
     recurring_id = Column(String(36), ForeignKey("recurring_transactions.id"), nullable=True)
     bill_id = Column(String(36), ForeignKey("bills.id"), nullable=True)
+    auto_rule_id = Column(String(36), ForeignKey("category_rules.id"), nullable=True)
     notes = Column(Text, nullable=True)
     tags = Column(JSON, nullable=True)
     is_split = Column(Boolean, default=False)

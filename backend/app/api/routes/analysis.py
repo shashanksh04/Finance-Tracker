@@ -33,3 +33,24 @@ async def get_period_analysis(
     currency = (user.settings or {}).get("currency", "USD")
     service = AnalysisService(db)
     return await service.get_period_analysis(user.id, period, year, month, quarter, account_id, category_id, currency)
+
+
+@router.get("/net-worth-trend")
+async def get_net_worth_trend(
+    months: int = Query(12, ge=1, le=120),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    service = AnalysisService(db)
+    return await service.get_net_worth_trend(user.id, months)
+
+
+@router.get("/calendar")
+async def get_calendar(
+    year: int = Query(...),
+    month: int = Query(..., ge=1, le=12),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    service = AnalysisService(db)
+    return await service.get_calendar(user.id, year, month)

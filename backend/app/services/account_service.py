@@ -72,7 +72,7 @@ class AccountService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
         from app.models.transaction import Transaction
         from app.models.recurring import RecurringTransaction
-        now = datetime.now(timezone.utc)
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
         await self.db.execute(
             Transaction.__table__.update().where(Transaction.account_id == account_id).values(deleted_at=now)
         )

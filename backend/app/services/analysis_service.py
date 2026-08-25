@@ -273,3 +273,99 @@ class AnalysisService:
             "goal_progress": goals,
             "spending_by_category": cat_breakdown,
         }
+
+    async def get_net_worth_trend(self, user_id: str, months: int = 12) -> dict:
+        from app.models.account import Account
+        from collections import defaultdict
+        from datetime import date, timedelta
+
+        today = date.today()
+        ends = []
+        y, m = today.year, today.month
+        for _ in range(max(1, months)):
+            nxt = date(y + 1, 1, 1) if m == 12 else date(y, m + 1, 1)
+            ends.append(nxt - timedelta(days=1))
+            m -= 1
+            if m == 0:
+                m = 12
+                y -= 1
+        ends.sort()
+
+        acct_result = await self.db.execute(
+            select(Account).where(Account.user_id == user_id, Account.deleted_at.is_(None))
+        )
+        accounts = list(acct_result.scalars().all())
+        txn_result = await self.db.execute(
+            select(Transaction).where(Transaction.user_id == user_id, Transaction.deleted_at.is_(None))
+        )
+        by_acct = defaultdict(list)
+        for t in txn_result.scalars().all():
+            by_acct[t.account_id].append(t)
+
+        def balance_as_of(account, end_date):
+            bal = float(account.balance or 0)
+            for t in by_acct.get(account.id, []):
+                if t.date.date() > end_date:
+                    amt = float(t.amount or 0)
+                    bal -= amt if t.type == "income" else -amt
+            return bal
+
+        series = []
+        for end in ends:
+            assets = 0.0
+            liabilities = 0.0
+            for a in accounts:
+                b = balance_as_of(a, end)
+                if a.type == "credit":
+                    liabilities += b
+                else:
+                    assets += b
+            series.append({
+                "month": end.strftime("%Y-%m"),
+                "label": end.strftime("%b %Y"),
+                "net_worth": round(assets - liabilities, 2),
+                "assets": round(assets, 2),
+                "liabilities": round(liabilities, 2),
+            })
+        return {"months": months, "series": series}
+
+    async def get_calendar(self, user_id: str, year: int, month: int) -> dict:
+        import calendar as cal
+        from app.models.bill import Bill
+
+        start = date(year, month, 1)
+        end = date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)
+
+        result = await self.db.execute(
+            select(
+                func.extract('day', Transaction.date).label('day'),
+                Transaction.type,
+                func.coalesce(func.sum(Transaction.amount), 0).label('total'),
+                func.count(Transaction.id).label('cnt'),
+            ).where(
+                Transaction.user_id == user_id,
+                Transaction.date >= start, Transaction.date < end,
+                Transaction.deleted_at.is_(None),
+            ).group_by(func.extract('day', Transaction.date), Transaction.type)
+        )
+        days = {}
+        for r in result.all():
+            d = int(r.day)
+            entry = days.setdefault(d, {"day": d, "income": 0.0, "expense": 0.0, "count": 0})
+            if r.type == "income":
+                entry["income"] += float(r.total)
+            else:
+                entry["expense"] += float(r.total)
+            entry["count"] += int(r.cnt)
+
+        bill_result = await self.db.execute(
+            select(Bill).where(Bill.user_id == user_id, Bill.deleted_at.is_(None), Bill.due_date >= start, Bill.due_date < end)
+        )
+        bills = [
+            {"id": b.id, "name": b.name, "amount": float(b.amount), "due_date": b.due_date.isoformat(), "is_paid": b.is_paid}
+            for b in bill_result.scalars().all()
+        ]
+
+        num_days = cal.monthrange(year, month)[1]
+        day_list = [days.get(d, {"day": d, "income": 0.0, "expense": 0.0, "count": 0}) for d in range(1, num_days + 1)]
+        return {"year": year, "month": month, "days": day_list, "bills": bills}

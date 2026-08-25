@@ -58,7 +58,7 @@ class BillService:
         bill = result.scalar_one_or_none()
         if not bill:
             raise HTTPException(status_code=404, detail="Bill not found")
-        bill.deleted_at = datetime.now(timezone.utc)
+        bill.deleted_at = datetime.now(timezone.utc).replace(tzinfo=None)
         await self.db.flush()
         return True
 

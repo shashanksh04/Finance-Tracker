@@ -29,6 +29,9 @@ class CategoryRuleResponse(BaseModel):
     max_amount: Optional[float] = None
     priority: int
     is_active: bool
+    confidence: float = 0.5
+    hit_count: int = 0
+    miss_count: int = 0
     created_at: datetime
 
     class Config:

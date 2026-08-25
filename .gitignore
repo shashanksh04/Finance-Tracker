@@ -17,3 +17,7 @@ stderr.txt
 .mypy_cache/
 *.egg-info/
 *.egg
+
+# Runtime artifacts copied from container
+backend/celerybeat-schedule
+backend/supervisord.pid

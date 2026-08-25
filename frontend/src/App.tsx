@@ -14,6 +14,8 @@ import { GoalsPage } from './pages/GoalsPage';
 import { BillsPage } from './pages/BillsPage';
 import { RecurringPage } from './pages/RecurringPage';
 import { AnalysisPage } from './pages/AnalysisPage';
+import { ReportsPage } from './pages/ReportsPage';
+import { CalendarPage } from './pages/CalendarPage';
 import { CopilotPage } from './pages/CopilotPage';
 import { AlertsPage } from './pages/AlertsPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -48,6 +50,8 @@ export default function App() {
           <Route path="bills" element={<BillsPage />} />
           <Route path="recurring" element={<RecurringPage />} />
           <Route path="analysis" element={<AnalysisPage />} />
+          <Route path="reports" element={<ReportsPage />} />
+          <Route path="calendar" element={<CalendarPage />} />
           <Route path="copilot" element={<CopilotPage />} />
           <Route path="alerts" element={<AlertsPage />} />
           <Route path="settings" element={<SettingsPage />} />

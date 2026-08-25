@@ -56,6 +56,6 @@ class CategoryService:
 
     async def delete(self, user_id: str, category_id: str) -> bool:
         cat = await self.get_by_id(user_id, category_id)
-        cat.deleted_at = datetime.now(timezone.utc)
+        cat.deleted_at = datetime.now(timezone.utc).replace(tzinfo=None)
         await self.db.flush()
         return True

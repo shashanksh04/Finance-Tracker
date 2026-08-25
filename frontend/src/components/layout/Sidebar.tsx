@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, ArrowLeftRight, Wallet, Tags, PiggyBank,
-  Target, FileText, Repeat, BarChart3, Bot, Bell, Settings, Shield, X
+  Target, FileText, Repeat, BarChart3, LineChart, Calendar, Bot, Bell, Settings, Shield, X
 } from 'lucide-react';
 import { cn } from '../../utils/format';
 import { useAuthStore } from '../../store/authStore';
@@ -16,6 +16,8 @@ const navItems = [
   { to: '/bills', icon: FileText, label: 'Bills' },
   { to: '/recurring', icon: Repeat, label: 'Recurring' },
   { to: '/analysis', icon: BarChart3, label: 'Analysis' },
+  { to: '/reports', icon: LineChart, label: 'Reports' },
+  { to: '/calendar', icon: Calendar, label: 'Calendar' },
   { to: '/copilot', icon: Bot, label: 'AI Copilot' },
   { to: '/alerts', icon: Bell, label: 'Alerts' },
   { to: '/settings', icon: Settings, label: 'Settings' },

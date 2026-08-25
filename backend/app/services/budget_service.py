@@ -85,7 +85,7 @@ class BudgetService:
         budget = result.scalar_one_or_none()
         if not budget:
             raise HTTPException(status_code=404, detail="Budget not found")
-        budget.deleted_at = datetime.now(timezone.utc)
+        budget.deleted_at = datetime.now(timezone.utc).replace(tzinfo=None)
         await self.db.flush()
         return True
 

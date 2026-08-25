@@ -179,6 +179,8 @@ export const ocrApi = {
 export const analysisApi = {
   getDashboard: () => api.get('/analysis/dashboard'),
   getPeriod: (params: any) => api.get('/analysis/period', { params }),
+  getNetWorthTrend: (months: number) => api.get('/analysis/net-worth-trend', { params: { months } }),
+  getCalendar: (year: number, month: number) => api.get('/analysis/calendar', { params: { year, month } }),
 };
 
 export const copilotApi = {

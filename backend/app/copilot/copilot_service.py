@@ -17,6 +17,7 @@ from app.copilot.graph import build_copilot_graph
 from app.copilot.agents.base import create_llm
 from app.copilot.nodes.insight_generator import run_insights
 from app.models.transaction import Transaction
+from app.core.currency import get_currency_symbol
 from datetime import date
 
 

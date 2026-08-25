@@ -41,7 +41,7 @@ MODEL_MAP = {
     "financial_memories": FinancialMemory,
 }
 
-EPOCH = datetime.fromtimestamp(0, tz=timezone.utc)
+EPOCH = datetime(1970, 1, 1)
 
 
 EXCLUDED_COLUMNS = {"embedding_vector"}
@@ -63,8 +63,10 @@ def _parse_timestamp(ts: Optional[str]) -> datetime:
         return EPOCH
     try:
         dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
+        # DB stores naive timestamps; strip tzinfo so Python comparisons stay
+        # naive-vs-naive (avoiding "can't compare offset-naive and offset-aware").
+        if dt.tzinfo is not None:
+            dt = dt.replace(tzinfo=None)
         return dt
     except (ValueError, TypeError):
         return EPOCH
@@ -79,7 +81,7 @@ class SyncService:
     ) -> dict:
         last_pulled_dt = _parse_timestamp(last_pulled_at)
         is_initial = last_pulled_dt == EPOCH
-        server_timestamp = datetime.now(timezone.utc).isoformat()
+        server_timestamp = datetime.now().isoformat()
         changes: dict[str, dict[str, list]] = {}
 
         for table_name in SYNC_TABLES:
@@ -166,7 +168,7 @@ class SyncService:
                     client_updated = record_data.get("updated_at")
                     client_dt = _parse_timestamp(client_updated)
                     server_updated = obj.updated_at
-                    if server_updated and client_dt > server_updated.replace(tzinfo=timezone.utc):
+                    if server_updated and client_dt > server_updated:
                         for field, value in record_data.items():
                             if field not in ("id", "user_id", "created_at", "user"):
                                 setattr(obj, field, value)
@@ -181,7 +183,7 @@ class SyncService:
                 )
                 obj = existing.scalar_one_or_none()
                 if obj and not obj.deleted_at:
-                    obj.deleted_at = datetime.now(timezone.utc)
+                    obj.deleted_at = datetime.now(timezone.utc).replace(tzinfo=None)
                     deleted_count += 1
 
             await self.db.flush()
