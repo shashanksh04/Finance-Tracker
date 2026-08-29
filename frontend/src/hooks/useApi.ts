@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import toast from 'react-hot-toast';
+import { getErrorMessage } from '../utils/format';
 
 interface UseApiState<T> {
   data: T | null;
@@ -22,7 +23,7 @@ export function useApi<T>() {
       if (options?.showSuccess) toast.success(options.showSuccess);
       return data;
     } catch (err: any) {
-      const message = err?.response?.data?.detail || err?.message || 'An error occurred';
+      const message = getErrorMessage(err, 'An error occurred');
       setState({ data: null, isLoading: false, error: message });
       toast.error(message);
       throw err;

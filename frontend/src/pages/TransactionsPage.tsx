@@ -11,7 +11,7 @@ import { PageHeader } from '../components/ui/PageHeader';
 import { DataTable } from '../components/ui/DataTable';
 import { Modal } from '../components/ui/Modal';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
-import { formatCurrency, formatDate, cn } from '../utils/format';
+import { formatCurrency, formatDate, cn, getErrorMessage } from '../utils/format';
 import toast from 'react-hot-toast';
 
 export function TransactionsPage() {
@@ -66,12 +66,12 @@ export function TransactionsPage() {
       }
       setShowModal(false);
       load();
-    } catch (err: any) { toast.error(err?.response?.data?.detail || 'Failed to save transaction'); } finally {}
+    } catch (err: any) { toast.error(getErrorMessage(err, 'Failed to save transaction')); } finally {}
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this transaction?')) return;
-    try { await transactionsApi.delete(id); toast.success('Transaction deleted'); load(); } catch (err: any) { toast.error(err?.response?.data?.detail || 'Failed to delete transaction'); }
+    try { await transactionsApi.delete(id); toast.success('Transaction deleted'); load(); } catch (err: any) { toast.error(getErrorMessage(err, 'Failed to delete transaction')); }
   };
 
   const handleBillScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -113,7 +113,7 @@ export function TransactionsPage() {
       toast.success('Transaction created from bill scan');
       setOcrScan(null);
       load();
-    } catch (err: any) { toast.error(err?.response?.data?.detail || 'Failed to create transaction from scan'); }
+    } catch (err: any) { toast.error(getErrorMessage(err, 'Failed to create transaction from scan')); }
   };
 
   const columns = [

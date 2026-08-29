@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List
-from datetime import datetime, date
+from datetime import datetime, date as Date
 
 class TransactionCreate(BaseModel):
     account_id: str
@@ -9,7 +9,7 @@ class TransactionCreate(BaseModel):
     type: str = Field(..., pattern="^(income|expense|transfer)$")
     description: str = ""
     merchant: Optional[str] = None
-    date: date
+    date: Date
     notes: Optional[str] = None
     tags: Optional[List[str]] = None
     is_split: bool = False
@@ -21,7 +21,7 @@ class TransactionUpdate(BaseModel):
     type: Optional[str] = Field(None, pattern="^(income|expense|transfer)$")
     description: Optional[str] = None
     merchant: Optional[str] = None
-    date: Optional[date] = None
+    date: Optional[Date] = None
     notes: Optional[str] = None
     tags: Optional[List[str]] = None
 
@@ -39,7 +39,7 @@ class TransactionResponse(BaseModel):
     type: str
     description: str
     merchant: Optional[str] = None
-    date: date
+    date: Date
     is_recurring: bool
     notes: Optional[str] = None
     tags: Optional[List[str]] = None
@@ -53,8 +53,8 @@ class TransactionFilterParams(BaseModel):
     account_id: Optional[str] = None
     category_id: Optional[str] = None
     type: Optional[str] = None
-    start_date: Optional[date] = None
-    end_date: Optional[date] = None
+    start_date: Optional[Date] = None
+    end_date: Optional[Date] = None
     min_amount: Optional[float] = None
     max_amount: Optional[float] = None
     merchant: Optional[str] = None
