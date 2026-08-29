@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Wallet, TrendingUp, TrendingDown, PiggyBank, Target, ArrowUpRight, DollarSign, Bell, Plus } from 'lucide-react';
-import { analysisApi, transactionsApi, accountsApi, categoriesApi, authApi } from '../services/api';
+import { analysisApi, transactionsApi, accountsApi, categoriesApi } from '../services/api';
 import { DashboardSummary, Account, Category } from '../types';
 import { transactionSchema, TransactionForm } from '../utils/validation';
 import { StatCard } from '../components/ui/StatCard';
@@ -13,21 +13,8 @@ import { PageHeader } from '../components/ui/PageHeader';
 import { formatCurrency, formatDate, cn } from '../utils/format';
 import { useThemeStore } from '../store/themeStore';
 import { useWebSocket } from '../hooks/useWebSocket';
-import { useAuthStore } from '../store/authStore';
 import toast from 'react-hot-toast';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-
-type WidgetDef = { id: string; title: string; node: JSX.Element };
-
-const WIDGET_IDS = [
-  'stats',
-  'income_expenses',
-  'spending_category',
-  'recent_transactions',
-  'upcoming_bills',
-  'goal_progress',
-  'alerts',
-];
 
 export function DashboardPage() {
   const [data, setData] = useState<DashboardSummary | null>(null);
@@ -35,9 +22,6 @@ export function DashboardPage() {
   const [showModal, setShowModal] = useState(false);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [editMode, setEditMode] = useState(false);
-  const dragId = useRef<string | null>(null);
-
   const { register, handleSubmit: formSubmit, reset, setValue, watch: watchForm, formState: { errors } } = useForm<TransactionForm>({
     resolver: zodResolver(transactionSchema),
     defaultValues: { account_id: '', category_id: '', amount: 0, type: 'expense', description: '', merchant: '', date: new Date().toISOString().split('T')[0] },
@@ -45,17 +29,6 @@ export function DashboardPage() {
   const txnType = watchForm('type');
   const navigate = useNavigate();
   const darkMode = useThemeStore((s) => s.darkMode);
-  const { user, loadUser } = useAuthStore();
-
-  const savedDashboard = (user?.settings as any)?.dashboard;
-  const [order, setOrder] = useState<string[]>(
-    savedDashboard?.order && Array.isArray(savedDashboard.order) && savedDashboard.order.length
-      ? savedDashboard.order
-      : WIDGET_IDS
-  );
-  const [hidden, setHidden] = useState<string[]>(
-    savedDashboard?.hidden && Array.isArray(savedDashboard.hidden) ? savedDashboard.hidden : []
-  );
 
   const load = useCallback(async () => {
     try { const { data } = await analysisApi.getDashboard(); setData(data); } finally { setLoading(false); }
@@ -88,70 +61,26 @@ export function DashboardPage() {
     alerts_updated: () => load(),
   });
 
-  const onDragStart = (e: React.DragEvent, id: string) => {
-    dragId.current = id;
-    e.dataTransfer.effectAllowed = 'move';
-  };
-
-  const onDragOver = (e: React.DragEvent, id: string) => {
-    e.preventDefault();
-    if (!dragId.current || dragId.current === id) return;
-    setOrder((prev) => {
-      const from = prev.indexOf(dragId.current as string);
-      const to = prev.indexOf(id);
-      if (from < 0 || to < 0) return prev;
-      const next = [...prev];
-      next.splice(from, 1);
-      next.splice(to, 0, dragId.current as string);
-      return next;
-    });
-  };
-
-  const onDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    dragId.current = null;
-  };
-
-  const toggleHide = (id: string) => {
-    setHidden((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-  };
-
-  const saveLayout = async () => {
-    try {
-      await authApi.updateProfile({ settings: { dashboard: { order, hidden } } });
-      toast.success('Layout saved');
-      setEditMode(false);
-      await loadUser();
-      load();
-    } catch {
-      toast.error('Failed to save layout');
-    }
-  };
-
   if (loading) return <section className="page-container"><LoadingSpinner size="lg" /></section>;
   if (!data) return <section className="page-container"><p className="text-surface-500 dark:text-surface-400">Unable to load dashboard</p></section>;
 
   const pieData = data.spending_by_category.map((c) => ({ name: c.category_name, value: c.amount }));
   const COLORS = ['#0ea5e9', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#f97316', '#ec4899'];
 
-  const widgetDefs: WidgetDef[] = [
-    {
-      id: 'stats',
-      title: 'Summary',
-      node: (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <StatCard label="Total Balance" value={formatCurrency(data.total_balance)} icon={<DollarSign className="w-5 h-5" />} color="primary" />
-          <StatCard label="Monthly Income" value={formatCurrency(data.monthly_income)} icon={<TrendingUp className="w-5 h-5" />} color="emerald" />
-          <StatCard label="Monthly Expenses" value={formatCurrency(data.monthly_expenses)} icon={<TrendingDown className="w-5 h-5" />} color="rose" />
-          <StatCard label="Net Savings" value={formatCurrency(data.net_worth_change)} change={data.monthly_income > 0 ? Math.round((data.net_worth_change / data.monthly_income) * 100) : 0} icon={<PiggyBank className="w-5 h-5" />} color="violet" />
-        </div>
-      ),
-    },
-    {
-      id: 'income_expenses',
-      title: 'Income vs Expenses',
-      node: (
-        <div className="card p-6">
+  return (
+    <section className="page-container">
+      <PageHeader title="Dashboard" subtitle="Your financial overview at a glance"
+        action={<button onClick={() => setShowModal(true)} className="btn-primary"><Plus className="w-4 h-4" /> Add Transaction</button>} />
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <StatCard label="Total Balance" value={formatCurrency(data.total_balance)} icon={<DollarSign className="w-5 h-5" />} color="primary" />
+        <StatCard label="Monthly Income" value={formatCurrency(data.monthly_income)} icon={<TrendingUp className="w-5 h-5" />} color="emerald" />
+        <StatCard label="Monthly Expenses" value={formatCurrency(data.monthly_expenses)} icon={<TrendingDown className="w-5 h-5" />} color="rose" />
+        <StatCard label="Net Savings" value={formatCurrency(data.net_worth_change)} change={data.monthly_income > 0 ? Math.round((data.net_worth_change / data.monthly_income) * 100) : 0} icon={<PiggyBank className="w-5 h-5" />} color="violet" />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <div className="lg:col-span-2 card p-6">
           <h2 className="text-sm font-semibold text-surface-900 dark:text-surface-100 mb-4">Income vs Expenses</h2>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
@@ -204,12 +133,7 @@ export function DashboardPage() {
             </ResponsiveContainer>
           </div>
         </div>
-      ),
-    },
-    {
-      id: 'spending_category',
-      title: 'Spending by Category',
-      node: (
+
         <div className="card p-6">
           <h2 className="text-sm font-semibold text-surface-900 dark:text-surface-100 mb-4">Spending by Category</h2>
           <div className="h-60">
@@ -234,12 +158,9 @@ export function DashboardPage() {
             ))}
           </div>
         </div>
-      ),
-    },
-    {
-      id: 'recent_transactions',
-      title: 'Recent Transactions',
-      node: (
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="card p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-surface-900 dark:text-surface-100">Recent Transactions</h2>
@@ -264,12 +185,7 @@ export function DashboardPage() {
             ))}
           </div>
         </div>
-      ),
-    },
-    {
-      id: 'upcoming_bills',
-      title: 'Upcoming Bills',
-      node: (
+
         <div className="card p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-surface-900 dark:text-surface-100">Upcoming Bills</h2>
@@ -291,12 +207,7 @@ export function DashboardPage() {
             <p className="text-sm text-surface-500 dark:text-surface-400 text-center py-8">No upcoming bills</p>
           )}
         </div>
-      ),
-    },
-    {
-      id: 'goal_progress',
-      title: 'Goal Progress',
-      node: (
+
         <div className="card p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-surface-900 dark:text-surface-100">Goal Progress</h2>
@@ -320,88 +231,27 @@ export function DashboardPage() {
             <p className="text-sm text-surface-500 dark:text-surface-400 text-center py-8">No goals set yet</p>
           )}
         </div>
-      ),
-    },
-    {
-      id: 'alerts',
-      title: 'Recent Alerts',
-      node: (
-        <div className="card p-6">
+      </div>
+
+      {data.alerts.length > 0 && (
+        <div className="mt-6 card p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-surface-900 dark:text-surface-100">Recent Alerts</h2>
             <button onClick={() => navigate('/alerts')} className="text-xs text-primary-600 dark:text-primary-400 font-medium hover:text-primary-700 dark:hover:text-primary-300">View all</button>
           </div>
-          {data.alerts.length > 0 ? (
-            <div className="space-y-2">
-              {data.alerts.slice(0, 3).map((alert) => (
-                <div key={alert.id} className="flex items-center gap-3 p-3 bg-surface-50 dark:bg-surface-950 rounded-xl">
-                  <Bell className={cn('w-4 h-4', alert.severity === 'critical' ? 'text-red-500 dark:text-red-400' : alert.severity === 'warning' ? 'text-amber-500 dark:text-amber-400' : 'text-primary-500 dark:text-primary-400')} />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-surface-900 dark:text-surface-100">{alert.title}</p>
-                    <p className="text-xs text-surface-500 dark:text-surface-400">{alert.message}</p>
-                  </div>
+          <div className="space-y-2">
+            {data.alerts.slice(0, 3).map((alert) => (
+              <div key={alert.id} className="flex items-center gap-3 p-3 bg-surface-50 dark:bg-surface-950 rounded-xl">
+                <Bell className={cn('w-4 h-4', alert.severity === 'critical' ? 'text-red-500 dark:text-red-400' : alert.severity === 'warning' ? 'text-amber-500 dark:text-amber-400' : 'text-primary-500 dark:text-primary-400')} />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-surface-900 dark:text-surface-100">{alert.title}</p>
+                  <p className="text-xs text-surface-500 dark:text-surface-400">{alert.message}</p>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-surface-500 dark:text-surface-400 text-center py-8">No alerts</p>
-          )}
-        </div>
-      ),
-    },
-  ];
-
-  const ordered = order.map((id) => widgetDefs.find((w) => w.id === id)).filter(Boolean) as WidgetDef[];
-  const visible = ordered.filter((w) => !hidden.includes(w.id));
-
-  return (
-    <section className="page-container">
-      <PageHeader title="Dashboard" subtitle="Your financial overview at a glance"
-        action={
-          <div className="flex gap-2">
-            {editMode ? (
-              <>
-                <button onClick={() => setEditMode(false)} className="btn-secondary">Cancel</button>
-                <button onClick={saveLayout} className="btn-primary">Save Layout</button>
-              </>
-            ) : (
-              <>
-                <button onClick={() => setEditMode(true)} className="btn-secondary">Customize</button>
-                <button onClick={() => setShowModal(true)} className="btn-primary"><Plus className="w-4 h-4" /> Add Transaction</button>
-              </>
-            )}
+              </div>
+            ))}
           </div>
-        } />
-
-      {editMode && (
-        <div className="mb-4 card p-3 text-sm text-surface-600 dark:text-surface-400">
-          Drag the cards to reorder your dashboard. Use <span className="font-medium">Hide</span> to remove a widget, then <span className="font-medium">Save Layout</span> to persist.
         </div>
       )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {visible.map((w) => (
-          <div
-            key={w.id}
-            draggable={editMode}
-            onDragStart={(e) => onDragStart(e, w.id)}
-            onDragOver={(e) => onDragOver(e, w.id)}
-            onDrop={onDrop}
-            className={cn(
-              'min-w-0',
-              editMode && 'cursor-move ring-2 ring-primary-300 rounded-xl'
-            )}
-          >
-            {editMode && (
-              <div className="flex items-center justify-between px-3 py-1.5 bg-surface-100 dark:bg-surface-800 rounded-t-xl">
-                <span className="text-xs font-medium text-surface-500 dark:text-surface-400">⠿ {w.title}</span>
-                <button type="button" onClick={() => toggleHide(w.id)} className="text-xs text-red-500 hover:text-red-600">Hide</button>
-              </div>
-            )}
-            {w.node}
-          </div>
-        ))}
-      </div>
 
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="New Transaction">
         <form onSubmit={formSubmit(onSubmit)} className="space-y-4">
