@@ -12,11 +12,13 @@ from app.copilot.nodes import (
 def build_copilot_graph(db: AsyncSession, user, llm: ChatOllama):
     builder = StateGraph(CopilotState)
 
+    proposed_actions: list = []
+
     builder.add_node("input_parser", make_input_parser())
     builder.add_node("context_builder", make_context_builder(db, user))
     builder.add_node("router", make_router())
     builder.add_node("supervisor", make_supervisor(llm))
-    builder.add_node("financial_data", make_financial_data_agent(db, user, llm))
+    builder.add_node("financial_data", make_financial_data_agent(db, user, llm, proposed_actions))
     builder.add_node("analysis", make_analysis_agent(db, user, llm))
     builder.add_node("advisor", make_advisor_agent(llm))
     builder.add_node("response_emitter", make_response_emitter(db, user))

@@ -15,15 +15,31 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def _pgvector_available() -> bool:
+    bind = op.get_bind()
+    row = bind.execute(
+        sa.text("SELECT 1 FROM pg_available_extensions WHERE name = 'vector'")
+    ).scalar_one_or_none()
+    return bool(row)
+
+
 def upgrade() -> None:
+    if not _pgvector_available():
+        print(
+            "pgvector extension not available on this server; "
+            "skipping embedding_vector column"
+        )
+        return
     op.execute("CREATE EXTENSION IF NOT EXISTS vector")
     op.add_column('financial_memories',
         sa.Column('embedding_vector', sa.Text(), nullable=True)
     )
+    from app.core.config import settings as _settings
+    dim = int(getattr(_settings, "EMBEDDING_DIMENSION", 1024))
     op.execute(
-        "ALTER TABLE financial_memories "
-        "ALTER COLUMN embedding_vector TYPE vector(1024) "
-        "USING embedding_vector::vector(1024)"
+        f"ALTER TABLE financial_memories "
+        f"ALTER COLUMN embedding_vector TYPE vector({dim}) "
+        f"USING embedding_vector::vector({dim})"
     )
     op.execute(
         "CREATE INDEX ix_financial_memories_embedding_vector "
@@ -34,5 +50,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    if not _pgvector_available():
+        return
     op.execute("DROP INDEX IF EXISTS ix_financial_memories_embedding_vector")
     op.drop_column('financial_memories', 'embedding_vector')

@@ -61,16 +61,25 @@ sudo cp -r dist/* /var/www/finance-tracker/
 # ---- Environment config ----
 echo ">>> Writing environment config..."
 cp "$APP_DIR/backend/.env.example" "$APP_DIR/backend/.env" 2>/dev/null || true
-cat > "$APP_DIR/backend/.env" << 'ENVEOF'
-DATABASE_URL=postgresql+asyncpg://finance_user:finance_pass@localhost:5432/finance_db
-SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
-JWT_ALGORITHM=HS256
+if [ -f "$APP_DIR/../.env" ]; then
+  set -a; . "$APP_DIR/../.env" 2>/dev/null || . "$APP_DIR/.env" 2>/dev/null || true; set +a
+fi
+DB_PASSWORD_VAL="${DB_PASSWORD:-finance_pass}"
+GENERATED_SECRET=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+cat > "$APP_DIR/backend/.env" <<ENVEOF
+DATABASE_URL=postgresql+asyncpg://finance_user:${DB_PASSWORD_VAL}@localhost:5432/finance_db
+DATABASE_URL_SYNC=postgresql+psycopg2://finance_user:${DB_PASSWORD_VAL}@localhost:5432/finance_db
+SECRET_KEY=${GENERATED_SECRET}
+ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 REFRESH_TOKEN_EXPIRE_DAYS=7
+REDIS_URL=redis://localhost:6379/0
+CELERY_BROKER_URL=redis://localhost:6379/1
+CELERY_RESULT_BACKEND=redis://localhost:6379/2
 CORS_ORIGINS=http://localhost,http://localhost:80,https://your-domain.trycloudflare.com
-OLLAMA_BASE_URL=https://ollama.com  # Ollama Cloud
+OLLAMA_BASE_URL=https://ollama.com
 OLLAMA_MODEL=gpt-oss:120b-cloud
-OLLAMA_API_KEY=your-ollama-cloud-api-key
+OLLAMA_API_KEY=${OLLAMA_API_KEY:-your-ollama-cloud-api-key}
 UPLOAD_DIR=/var/www/finance-tracker/uploads
 ENVEOF
 
@@ -84,7 +93,7 @@ PYTHONPATH="$APP_DIR/backend" alembic upgrade head
 
 # ---- Systemd service for FastAPI ----
 echo ">>> Creating systemd service for FastAPI..."
-sudo tee /etc/systemd/system/finance-api.service > /dev/null << 'SERVICEEOF'
+sudo tee /etc/systemd/system/finance-api.service > /dev/null <<SERVICEEOF
 [Unit]
 Description=Finance Tracker FastAPI Backend
 After=network.target postgresql.service redis-server.service
@@ -92,9 +101,9 @@ Requires=postgresql.service
 
 [Service]
 Type=simple
-User=pi
-WorkingDirectory=/home/pi/app/backend
-Environment=PYTHONPATH=/home/pi/app/backend
+User=${PI_USER}
+WorkingDirectory=${APP_DIR}/backend
+Environment=PYTHONPATH=${APP_DIR}/backend
 ExecStart=/usr/bin/python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 2
 Restart=always
 RestartSec=5
@@ -111,7 +120,7 @@ sudo systemctl start finance-api
 
 # ---- Nginx config ----
 echo ">>> Configuring Nginx..."
-sudo tee /etc/nginx/sites-available/finance-tracker > /dev/null << 'NGINXEOF'
+sudo tee /etc/nginx/sites-available/finance-tracker > /dev/null <<NGINXEOF
 server {
     listen 80;
     server_name _;

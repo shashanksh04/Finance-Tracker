@@ -8,15 +8,21 @@ router = APIRouter()
 
 @router.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
+    from app.core.security import is_token_blacklisted
     user_id = None
-    await ws.accept()
     try:
         data = await ws.receive_text()
         msg = json.loads(data)
         token = msg.get("token", "")
         payload = decode_token(token)
         if not payload or payload.type != "access":
+            await ws.accept()
             await ws.send_json({"event": "error", "data": "Authentication failed"})
+            await ws.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
+        if await is_token_blacklisted(payload.jti):
+            await ws.accept()
+            await ws.send_json({"event": "error", "data": "Token revoked"})
             await ws.close(code=status.WS_1008_POLICY_VIOLATION)
             return
         user_id = payload.sub

@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, Boolean, DateTime, Numeric, Text, Date, ForeignKey
+from sqlalchemy import Column, String, Boolean, DateTime, Numeric, Text, Date, ForeignKey, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.core.database import Base
@@ -7,6 +7,9 @@ from app.core.database import Base
 
 class Bill(Base):
     __tablename__ = "bills"
+    __table_args__ = (
+        Index("ix_bills_user_due_deleted", "user_id", "due_date", "deleted_at"),
+    )
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(String(36), ForeignKey("users.id"), nullable=False)

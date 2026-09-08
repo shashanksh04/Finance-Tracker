@@ -10,6 +10,8 @@ engine = create_async_engine(
     max_overflow=20,
     pool_recycle=3600,
     pool_reset_on_return="rollback",
+    pool_timeout=30,
+    connect_args={"command_timeout": 10, "server_settings": {"statement_timeout": "30000", "idle_in_transaction_session_timeout": "60000"}},
 )
 async_session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 

@@ -5,14 +5,14 @@ from datetime import datetime, date
 class BudgetCreate(BaseModel):
     category_id: Optional[str] = None
     amount: float = Field(..., gt=0)
-    period: str = Field(..., pattern="^(monthly|quarterly|yearly)$")
+    period: str = Field(..., pattern="^(weekly|monthly|quarterly|yearly)$")
     start_date: date
     end_date: Optional[date] = None
     rollover: bool = False
 
 class BudgetUpdate(BaseModel):
-    amount: Optional[float] = None
-    period: Optional[str] = None
+    amount: Optional[float] = Field(default=None, gt=0)
+    period: Optional[str] = Field(default=None, pattern="^(weekly|monthly|quarterly|yearly)$")
     end_date: Optional[date] = None
     is_active: Optional[bool] = None
     rollover: Optional[bool] = None

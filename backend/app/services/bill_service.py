@@ -65,15 +65,24 @@ class BillService:
     async def upload_file(self, user_id: str, bill_id: str, file: UploadFile) -> dict:
         import aiofiles
         result = await self.db.execute(
-            select(Bill).options(joinedload(Bill.category)).where(Bill.id == bill_id, Bill.user_id == user_id)
+            select(Bill).options(joinedload(Bill.category)).where(Bill.id == bill_id, Bill.user_id == user_id, Bill.deleted_at.is_(None))
         )
         bill = result.unique().scalar_one_or_none()
         if not bill:
             raise HTTPException(status_code=404, detail="Bill not found")
-        ext = os.path.splitext(file.filename)[1] if file.filename else ".pdf"
+        ALLOWED_EXT = {".pdf", ".png", ".jpg", ".jpeg", ".bmp", ".tiff"}
+        raw_ext = os.path.splitext(file.filename)[1].lower() if file.filename else ""
+        if raw_ext not in ALLOWED_EXT:
+            raise HTTPException(status_code=400, detail=f"Unsupported file type: {raw_ext}")
+        MAX_SIZE = 10 * 1024 * 1024
+        content = await file.read()
+        if len(content) > MAX_SIZE:
+            raise HTTPException(status_code=413, detail="File too large (max 10MB)")
+        if len(content) == 0:
+            raise HTTPException(status_code=400, detail="Empty file")
+        ext = raw_ext
         file_path = os.path.join(settings.UPLOAD_DIR, "bills", f"{bill_id}{ext}")
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
-        content = await file.read()
         async with aiofiles.open(file_path, "wb") as f:
             await f.write(content)
         bill.file_path = file_path

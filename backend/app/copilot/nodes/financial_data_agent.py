@@ -6,9 +6,9 @@ from app.copilot.state import CopilotState
 from app.copilot.agents.base import create_tools, dicts_to_langchain
 
 
-def make_financial_data_agent(db: AsyncSession, user, llm: ChatOllama):
+def make_financial_data_agent(db: AsyncSession, user, llm: ChatOllama, proposed_actions: list):
     async def financial_data_agent(state: CopilotState) -> dict:
-        tools = create_tools(db, state["user_id"], user)
+        tools = create_tools(db, state["user_id"], user, proposed_actions)
         llm_with_tools = llm.bind_tools(tools)
         tool_map = {t.name: t for t in tools}
 
@@ -17,7 +17,11 @@ def make_financial_data_agent(db: AsyncSession, user, llm: ChatOllama):
             f"Financial context:\n{state['financial_context']}\n\n"
             "CRITICAL: You MUST use a tool to answer ANY question about spending, income, transactions, "
             "budgets, or other financial data. Do NOT answer from the summary context alone.\n"
-            "Always prefer using a tool over guessing from context."
+            "Always prefer using a tool over guessing from context.\n\n"
+            "When the user asks to add, edit, update, or delete a transaction, budget, goal, category, "
+            "account, or mark a bill as paid, call the appropriate action tool (create_*, update_*, "
+            "delete_*, mark_bill_paid). These tools only PROPOSE the change — they are NOT executed. "
+            "Tell the user the change is pending their confirmation; never claim it was already done."
         ))
         history = dicts_to_langchain(state["messages"][-5:])
         agent_messages = [system] + history
@@ -42,5 +46,5 @@ def make_financial_data_agent(db: AsyncSession, user, llm: ChatOllama):
 
         scratchpad.append(ai_msg)
         final = ai_msg.content or "I found the information you requested."
-        return {"final_response": state.get("final_response", "") + final, "agent_scratchpad": scratchpad, "next_node": "response_emitter"}
+        return {"final_response": state.get("final_response", "") + final, "agent_scratchpad": scratchpad, "next_node": "response_emitter", "proposed_actions": proposed_actions}
     return financial_data_agent

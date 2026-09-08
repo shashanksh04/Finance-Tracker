@@ -1,12 +1,12 @@
-FROM --platform=linux/arm64 node:20-alpine AS frontend-builder
+FROM node:20-alpine AS frontend-builder
 WORKDIR /app
 COPY frontend/package*.json ./
 RUN npm ci
 COPY frontend/ .
 RUN npm run build
 
-FROM --platform=linux/arm64 python:3.12-slim-bookworm
-RUN apt-get update && apt-get install -y nginx supervisor && rm -rf /var/lib/apt/lists/* && \
+FROM python:3.12-slim-bookworm
+RUN apt-get update && apt-get install -y nginx supervisor ffmpeg libgomp1 && rm -rf /var/lib/apt/lists/* && \
     rm -rf /usr/share/doc/* /usr/share/man/* /var/cache/apt/archives/*
 
 RUN addgroup --system app && adduser --system --ingroup app app

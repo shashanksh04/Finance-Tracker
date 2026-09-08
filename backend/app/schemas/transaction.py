@@ -17,12 +17,12 @@ class TransactionCreate(BaseModel):
 class TransactionUpdate(BaseModel):
     account_id: Optional[str] = None
     category_id: Optional[str] = None
-    amount: Optional[float] = None
-    type: Optional[str] = Field(None, pattern="^(income|expense|transfer)$")
-    description: Optional[str] = None
-    merchant: Optional[str] = None
+    amount: Optional[float] = Field(default=None, gt=0)
+    type: Optional[str] = Field(default=None, pattern="^(income|expense|transfer)$")
+    description: Optional[str] = Field(default=None, min_length=1, max_length=500)
+    merchant: Optional[str] = Field(default=None, max_length=120)
     date: Optional[Date] = None
-    notes: Optional[str] = None
+    notes: Optional[str] = Field(default=None, max_length=2000)
     tags: Optional[List[str]] = None
 
 class TransactionResponse(BaseModel):

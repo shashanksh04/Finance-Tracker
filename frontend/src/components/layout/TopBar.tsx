@@ -14,7 +14,11 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
   const [unreadCount, setUnreadCount] = useState(0);
 
   const fetchUnread = () => {
-    alertsApi.getAll(true, 1).then(({ data }) => setUnreadCount(data.length || data.total || 0)).catch(() => {});
+    alertsApi.getAll(true, 50).then(({ data }) => {
+      const items = (data as any)?.items ?? data;
+      const count = Array.isArray(items) ? items.length : (data.total ?? data.length ?? 0);
+      setUnreadCount(count);
+    }).catch(() => {});
   };
 
   useEffect(() => { fetchUnread(); }, []);

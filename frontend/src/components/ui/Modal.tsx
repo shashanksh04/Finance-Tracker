@@ -11,21 +11,24 @@ interface ModalProps {
 
 export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalProps) {
   useEffect(() => {
-    if (isOpen) document.body.style.overflow = 'hidden';
-    else document.body.style.overflow = '';
-    return () => { document.body.style.overflow = ''; };
-  }, [isOpen]);
+    if (!isOpen) return;
+    document.body.style.overflow = 'hidden';
+    const prevActive = document.activeElement as HTMLElement | null;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => { document.body.style.overflow = ''; document.removeEventListener('keydown', onKey); prevActive?.focus(); };
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
   const sizes = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-2xl' };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className={`modal-content ${sizes[size]}`} onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay" onClick={onClose} role="presentation">
+      <div role="dialog" aria-modal="true" aria-labelledby="modal-title" className={`modal-content ${sizes[size]}`} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-surface-200 dark:border-surface-700">
-          <h2 className="text-lg font-semibold text-surface-900 dark:text-surface-100">{title}</h2>
-          <button onClick={onClose} className="p-1 hover:bg-surface-100 dark:hover:bg-surface-800 rounded-lg transition-colors">
+          <h2 id="modal-title" className="text-lg font-semibold text-surface-900 dark:text-surface-100">{title}</h2>
+          <button onClick={onClose} aria-label="Close dialog" className="p-1 hover:bg-surface-100 dark:hover:bg-surface-800 rounded-lg transition-colors">
             <X className="w-5 h-5 text-surface-500 dark:text-surface-400" />
           </button>
         </div>

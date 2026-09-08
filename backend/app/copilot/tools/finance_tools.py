@@ -13,6 +13,10 @@ from app.services.analysis_service import AnalysisService
 from app.core.currency import get_currency_symbol
 
 
+def _escape_like(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 def _currency_symbol(user) -> str:
     return get_currency_symbol(user)
 
@@ -49,10 +53,11 @@ async def get_spending_by_category(
         Transaction.type == type,
     ]
     if category_name:
+        esc = _escape_like(category_name.lower())
         cat_result = await db.execute(
             select(Category).where(
                 Category.user_id == user_id,
-                func.lower(Category.name).contains(category_name.lower()),
+                func.lower(Category.name).ilike(f"%{esc}%", escape="\\"),
             )
         )
         cat = cat_result.scalar_one_or_none()
@@ -164,17 +169,19 @@ async def get_recent_transactions(
 ) -> dict:
     where = [Transaction.user_id == user_id]
     if category:
+        esc = _escape_like(category.lower())
         cat_result = await db.execute(
             select(Category).where(
                 Category.user_id == user_id,
-                func.lower(Category.name).contains(category.lower()),
+                func.lower(Category.name).ilike(f"%{esc}%", escape="\\"),
             )
         )
         cat = cat_result.scalar_one_or_none()
         if cat:
             where.append(Transaction.category_id == cat.id)
     if merchant:
-        where.append(func.lower(Transaction.merchant).contains(merchant.lower()))
+        esc_m = _escape_like(merchant.lower())
+        where.append(func.lower(Transaction.merchant).ilike(f"%{esc_m}%", escape="\\"))
 
     query = select(Transaction).where(and_(*where)).order_by(Transaction.date.desc()).limit(limit)
     result = await db.execute(query)
@@ -441,10 +448,11 @@ async def get_income_summary(
     ]
 
     if account_name:
+        esc_a = _escape_like(account_name.lower())
         acct_result = await db.execute(
             select(Account).where(
                 Account.user_id == user_id,
-                func.lower(Account.name).contains(account_name.lower()),
+                func.lower(Account.name).ilike(f"%{esc_a}%", escape="\\"),
             )
         )
         acct = acct_result.scalar_one_or_none()

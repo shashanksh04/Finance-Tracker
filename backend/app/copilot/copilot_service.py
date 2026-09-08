@@ -61,6 +61,7 @@ class CopilotService:
             "errors": [],
             "final_response": "",
             "next_node": "input_parser",
+            "proposed_actions": [],
         }
 
     async def chat(self, user_id: str, request: CopilotRequest) -> CopilotResponse:
@@ -73,6 +74,7 @@ class CopilotService:
             session_id=final_state.get("session_id", ""),
             suggested_actions=[],
             insights=[],
+            proposed_actions=final_state.get("proposed_actions", []),
         )
 
     async def chat_stream(
@@ -89,47 +91,61 @@ class CopilotService:
         state = self._build_state(user_id, request, session_id)
 
         graph_task = asyncio.create_task(graph.ainvoke(state))
-
         reply_parts = []
-        done = False
-        while not done:
-            try:
-                event_type, content = await asyncio.wait_for(queue.get(), timeout=0.3)
-                if event_type == "token":
-                    reply_parts.append(content)
-                    yield self._sse_event("token", content)
-                elif event_type == "status":
-                    yield self._sse_event("status", content)
-            except asyncio.TimeoutError:
-                if graph_task.done():
-                    if graph_task.cancelled():
-                        yield self._sse_event("error", "Request cancelled")
-                        return
-                    if graph_task.exception():
-                        err = str(graph_task.exception())
-                        yield self._sse_event("error", err)
-                        return
-                    while not queue.empty():
-                        et, c = queue.get_nowait()
-                        if et == "token":
-                            reply_parts.append(c)
-                            yield self._sse_event("token", c)
-                    done = True
-
-        reply = "".join(reply_parts)
-        yield self._sse_event("done", session_id)
-
         try:
-            final_state = graph_task.result()
-        except Exception:
-            final_state = state
+            done = False
+            while not done:
+                try:
+                    event_type, content = await asyncio.wait_for(queue.get(), timeout=0.3)
+                    if event_type == "token":
+                        reply_parts.append(content)
+                        yield self._sse_event("token", content)
+                    elif event_type == "status":
+                        yield self._sse_event("status", content)
+                except asyncio.TimeoutError:
+                    if graph_task.done():
+                        if graph_task.cancelled():
+                            yield self._sse_event("error", "Request cancelled")
+                            return
+                        exc = graph_task.exception()
+                        if exc:
+                            yield self._sse_event("error", str(exc))
+                            return
+                        while not queue.empty():
+                            et, c = queue.get_nowait()
+                            if et == "token":
+                                reply_parts.append(c)
+                                yield self._sse_event("token", c)
+                        done = True
 
-        if not reply:
-            reply = final_state.get("final_response", "")
+            reply = "".join(reply_parts)
 
-        asyncio.create_task(
-            run_insights(self.db, user_id, self.user, final_state.get("messages", []))
-        )
+            try:
+                final_state = graph_task.result()
+            except Exception:
+                final_state = state
+
+            if not reply:
+                reply = final_state.get("final_response", "")
+
+            actions = final_state.get("proposed_actions", [])
+            if actions:
+                yield self._sse_event("actions", actions)
+            yield self._sse_event("done", session_id)
+
+        finally:
+            if not graph_task.done():
+                graph_task.cancel()
+                try:
+                    await graph_task
+                except asyncio.CancelledError:
+                    pass
+            from app.core.database import async_session_factory
+            try:
+                async with async_session_factory() as _db:
+                    await run_insights(_db, user_id, self.user, final_state.get("messages", []) if 'final_state' in locals() else [])
+            except Exception:
+                pass
 
     async def simulate_decision(
         self, user_id: str, request: DecisionSimulationRequest

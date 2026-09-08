@@ -30,6 +30,7 @@ class BudgetService:
         if active_only:
             query = query.where(Budget.is_active == True)
         query = query.order_by(Budget.created_at.desc())
+        total = None
         if page > 0 and page_size > 0:
             count_query = select(func.count()).select_from(query.subquery())
             total = (await self.db.execute(count_query)).scalar() or 0
@@ -43,9 +44,15 @@ class BudgetService:
                 "total": total,
                 "page": page,
                 "page_size": page_size,
-                "total_pages": max(1, (total + page_size - 1) // page_size),
+                "total_pages": max(1, (total + page_size - 1) // page_size) if total else 1,
             }
-        return enriched
+        return {
+            "items": enriched,
+            "total": total if total is not None else len(enriched),
+            "page": 1,
+            "page_size": len(enriched) if enriched else 1,
+            "total_pages": 1,
+        }
 
     async def get_by_id(self, user_id: str, budget_id: str) -> dict:
         result = await self.db.execute(
@@ -95,22 +102,26 @@ class BudgetService:
         now = date.today()
         result = []
         for budget in budgets:
-            if budget.period == "monthly":
-                start = now.replace(day=1)
-                if now.month == 12:
-                    end = now.replace(year=now.year + 1, month=1, day=1)
+            anchor = budget.start_date if budget.start_date else now
+            if budget.period == "weekly":
+                start = anchor - timedelta(days=anchor.weekday())
+                end = start + timedelta(days=7)
+            elif budget.period == "monthly":
+                start = anchor.replace(day=1)
+                if start.month == 12:
+                    end = start.replace(year=start.year + 1, month=1, day=1)
                 else:
-                    end = now.replace(month=now.month + 1, day=1)
+                    end = start.replace(month=start.month + 1, day=1)
             elif budget.period == "quarterly":
-                q = (now.month - 1) // 3
-                start = now.replace(month=q * 3 + 1, day=1)
+                q = (anchor.month - 1) // 3
+                start = anchor.replace(month=q * 3 + 1, day=1)
                 if q == 3:
-                    end = now.replace(year=now.year + 1, month=1, day=1)
+                    end = start.replace(year=start.year + 1, month=1, day=1)
                 else:
-                    end = now.replace(month=(q + 1) * 3 + 1, day=1)
+                    end = start.replace(month=(q + 1) * 3 + 1, day=1)
             else:
-                start = now.replace(month=1, day=1)
-                end = now.replace(year=now.year + 1, month=1, day=1)
+                start = anchor.replace(month=1, day=1)
+                end = start.replace(year=start.year + 1, month=1, day=1)
             result.append((budget, start, end))
         user_id = budgets[0].user_id
         ranges: dict[tuple[date, date], list[Budget]] = {}

@@ -88,7 +88,7 @@ class MemoryService:
             if len(ids) > keep_per_type:
                 excess = ids[keep_per_type:]
                 await self.db.execute(
-                    sa_delete(FinancialMemory).where(FinancialMemory.id.in_(excess))
+                    FinancialMemory.__table__.update().where(FinancialMemory.id.in_(excess)).values(deleted_at=now, updated_at=now)
                 )
                 pruned += len(excess)
         await self.db.flush()

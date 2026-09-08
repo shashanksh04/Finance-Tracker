@@ -19,62 +19,62 @@ export const registerSchema = z.object({
 export type RegisterForm = z.infer<typeof registerSchema>;
 
 export const accountSchema = z.object({
-  name: z.string().min(1, 'Account name is required'),
-  type: z.enum(['checking', 'savings', 'credit', 'investment', 'cash']),
-  balance: z.coerce.number().min(0, 'Balance cannot be negative'),
-  currency: z.string().min(1, 'Currency is required'),
-  icon: z.string().optional(),
-  color: z.string().optional(),
+  name: z.string().trim().min(1, 'Account name is required').max(100, 'Name too long'),
+  type: z.enum(['checking', 'savings', 'credit', 'investment', 'cash', 'loan', 'other']),
+  balance: z.coerce.number().min(0, 'Balance cannot be negative').max(1e12, 'Balance too large'),
+  currency: z.string().trim().min(1, 'Currency is required').max(8),
+  icon: z.string().trim().max(32).optional(),
+  color: z.string().trim().max(16).optional(),
 });
 export type AccountForm = z.infer<typeof accountSchema>;
 
 export const transactionSchema = z.object({
   account_id: z.string().min(1, 'Account is required'),
   category_id: z.string().optional(),
-  amount: z.coerce.number().positive('Amount must be positive'),
+  amount: z.coerce.number().positive('Amount must be positive').max(1e12),
   type: z.enum(['income', 'expense']),
-  description: z.string().optional(),
-  merchant: z.string().optional(),
-  date: z.string().min(1, 'Date is required'),
+  description: z.string().trim().max(500).optional().refine((v) => !v || v.trim().length > 0, { message: 'Description cannot be blank' }),
+  merchant: z.string().trim().max(120).optional(),
+  date: z.string().min(1, 'Date is required').refine((v) => !isNaN(Date.parse(v)), { message: 'Invalid date' }),
 });
 export type TransactionForm = z.infer<typeof transactionSchema>;
 
 export const budgetSchema = z.object({
   category_id: z.string().optional(),
-  amount: z.coerce.number().positive('Budget amount must be positive'),
-  period: z.enum(['monthly', 'quarterly', 'yearly']),
-  start_date: z.string().min(1, 'Start date is required'),
-  end_date: z.string().optional(),
+  amount: z.coerce.number().positive('Budget amount must be positive').max(1e12),
+  period: z.enum(['weekly', 'monthly', 'quarterly', 'yearly']),
+  start_date: z.string().min(1, 'Start date is required').refine((v) => !isNaN(Date.parse(v)), { message: 'Invalid date' }),
+  end_date: z.string().optional().refine((v) => !v || !isNaN(Date.parse(v)), { message: 'Invalid date' }),
   rollover: z.boolean(),
 });
 export type BudgetForm = z.infer<typeof budgetSchema>;
 
 export const goalSchema = z.object({
-  name: z.string().min(1, 'Goal name is required'),
-  target_amount: z.coerce.number().positive('Target amount must be positive'),
-  current_amount: z.coerce.number().min(0, 'Current amount cannot be negative').optional(),
-  deadline: z.string().optional(),
-  icon: z.string().optional(),
-  color: z.string().optional(),
-  monthly_contribution: z.coerce.number().min(0).optional(),
-  notes: z.string().optional(),
+  name: z.string().trim().min(1, 'Goal name is required').max(200),
+  target_amount: z.coerce.number().positive('Target amount must be positive').max(1e12),
+  current_amount: z.coerce.number().min(0, 'Current amount cannot be negative').max(1e12).optional(),
+  deadline: z.string().optional().refine((v) => !v || !isNaN(Date.parse(v)), { message: 'Invalid date' }),
+  icon: z.string().trim().max(32).optional(),
+  color: z.string().trim().max(16).optional(),
+  monthly_contribution: z.coerce.number().min(0).max(1e12).optional(),
+  notes: z.string().trim().max(2000).optional(),
 });
 export type GoalForm = z.infer<typeof goalSchema>;
 
 export const billSchema = z.object({
-  name: z.string().min(1, 'Bill name is required'),
-  amount: z.coerce.number().positive('Amount must be positive'),
-  due_date: z.string().min(1, 'Due date is required'),
+  name: z.string().trim().min(1, 'Bill name is required').max(200),
+  amount: z.coerce.number().positive('Amount must be positive').max(1e12),
+  due_date: z.string().min(1, 'Due date is required').refine((v) => !isNaN(Date.parse(v)), { message: 'Invalid date' }),
   category_id: z.string().optional(),
-  notes: z.string().optional(),
+  notes: z.string().trim().max(2000).optional(),
 });
 export type BillForm = z.infer<typeof billSchema>;
 
 export const categorySchema = z.object({
-  name: z.string().min(1, 'Category name is required'),
+  name: z.string().trim().min(1, 'Category name is required').max(80),
   type: z.enum(['expense', 'income']),
-  icon: z.string().optional(),
-  color: z.string().optional(),
+  icon: z.string().trim().max(16).optional(),
+  color: z.string().trim().max(16).optional(),
   parent_id: z.string().optional(),
 });
 export type CategoryForm = z.infer<typeof categorySchema>;
@@ -94,7 +94,7 @@ export const recurringSchema = z.object({
 export type RecurringForm = z.infer<typeof recurringSchema>;
 
 export const profileSchema = z.object({
-  full_name: z.string().min(1, 'Name is required'),
+  full_name: z.string().trim().min(1, 'Name is required').max(120),
 });
 export type ProfileForm = z.infer<typeof profileSchema>;
 

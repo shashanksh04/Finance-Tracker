@@ -5,6 +5,7 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, Tool
 from langchain_core.tools import tool
 from app.core.config import settings
 from app.copilot.tools import finance_tools
+from app.copilot.tools.action_tools import make_action_tools
 
 
 def create_llm(callbacks: Optional[list] = None) -> ChatOllama:
@@ -50,10 +51,11 @@ def langchain_to_dict(msg: BaseMessage) -> Dict:
     return {"role": "unknown", "content": msg.content}
 
 
-def create_tools(db, user_id: str, user) -> list:
+def create_tools(db, user_id: str, user, proposed_actions: Optional[list] = None) -> list:
     _db = db
     _uid = user_id
     _user = user
+    _proposed = proposed_actions if proposed_actions is not None else []
 
     @tool
     async def get_spending_by_category(category_name: Optional[str] = None, period: str = "this_month", type: str = "expense") -> str:
@@ -111,4 +113,6 @@ def create_tools(db, user_id: str, user) -> list:
 
     return [get_spending_by_category, get_budget_health, get_recent_transactions,
             get_upcoming_bills, compare_periods, get_goal_progress,
-            get_goal_spending_impact, get_accounts, get_income_summary]
+            get_goal_spending_impact, get_accounts, get_income_summary] + make_action_tools(
+                db=_db, user_id=_uid, user=_user, proposed_actions=_proposed
+            )

@@ -20,3 +20,4 @@ class CopilotState(TypedDict):
     errors: List[str]
     final_response: str
     next_node: str
+    proposed_actions: List[Dict[str, Any]]

@@ -18,8 +18,10 @@ function getStoredTokens(): AuthTokens | null {
 }
 
 let isAuthClearing = false;
+let pendingRefresh: Promise<AuthTokens | null> | null = null;
 
 function clearAuth() {
+  if (isAuthClearing) return;
   isAuthClearing = true;
   localStorage.removeItem('auth-storage');
   window.location.href = '/login';
@@ -28,6 +30,32 @@ function clearAuth() {
 window.addEventListener('auth:logout', () => {
   isAuthClearing = true;
 });
+
+async function refreshTokens(): Promise<AuthTokens | null> {
+  const tokens = getStoredTokens();
+  if (!tokens?.refresh_token) return null;
+  if (pendingRefresh) return pendingRefresh;
+  pendingRefresh = (async () => {
+    try {
+      const { data } = await axios.post('/api/auth/refresh', {
+        refresh_token: tokens.refresh_token,
+      });
+      try {
+        const raw = localStorage.getItem('auth-storage') || '{}';
+        const stored = JSON.parse(raw);
+        stored.state = { ...stored.state, tokens: data };
+        localStorage.setItem('auth-storage', JSON.stringify(stored));
+      } catch {}
+      return data as AuthTokens;
+    } catch {
+      clearAuth();
+      return null;
+    } finally {
+      pendingRefresh = null;
+    }
+  })();
+  return pendingRefresh;
+}
 
 api.interceptors.request.use((config) => {
   const tokens = getStoredTokens();
@@ -41,22 +69,16 @@ api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     const originalRequest = error.config as any;
+    if (!originalRequest) return Promise.reject(error);
+    if (originalRequest.url?.includes('/auth/refresh') || originalRequest.url?.includes('/auth/login')) {
+      return Promise.reject(error);
+    }
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
-      const tokens = getStoredTokens();
-      if (tokens?.refresh_token) {
-        try {
-          const { data } = await axios.post('/api/auth/refresh', {
-            refresh_token: tokens.refresh_token,
-          });
-          const stored = JSON.parse(localStorage.getItem('auth-storage') || '{}');
-          stored.state = { ...stored.state, tokens: data };
-          localStorage.setItem('auth-storage', JSON.stringify(stored));
-          originalRequest.headers.Authorization = `Bearer ${data.access_token}`;
-          return api(originalRequest);
-        } catch {
-          clearAuth();
-        }
+      const newTokens = await refreshTokens();
+      if (newTokens?.access_token) {
+        originalRequest.headers.Authorization = `Bearer ${newTokens.access_token}`;
+        return api(originalRequest);
       }
     }
     return Promise.reject(error);
@@ -176,6 +198,16 @@ export const ocrApi = {
   },
 };
 
+export const voiceApi = {
+  transcribe: (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return api.post('/voice/transcribe', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+};
+
 export const analysisApi = {
   getDashboard: () => api.get('/analysis/dashboard'),
   getPeriod: (params: any) => api.get('/analysis/period', { params }),
@@ -188,36 +220,59 @@ export const copilotApi = {
   chatStream: (data: any, onEvent: (event: { type: string; content: any }) => void, onDone: () => void, onError: (err: Error) => void) => {
     const tokens = getStoredTokens();
     const controller = new AbortController();
-    fetch('/api/copilot/chat/stream', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(tokens?.access_token ? { Authorization: `Bearer ${tokens.access_token}` } : {}) },
-      body: JSON.stringify(data),
-      signal: controller.signal,
-    }).then(async (response) => {
-      if (!response.ok || !response.body) {
-        onError(new Error(`HTTP ${response.status}`));
+    const doFetch = async (attemptRefresh = true) => {
+      const curTokens = getStoredTokens();
+      const res = await fetch('/api/copilot/chat/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(curTokens?.access_token ? { Authorization: `Bearer ${curTokens.access_token}` } : {}) },
+        body: JSON.stringify(data),
+        signal: controller.signal,
+      });
+      if (res.status === 401 && attemptRefresh) {
+        const newTokens = await refreshTokens();
+        if (newTokens) return doFetch(false);
+      }
+      return res;
+    };
+    doFetch().then(async (response) => {
+      if (!response || !response.ok || !response.body) {
+        onError(new Error(`HTTP ${response?.status ?? 0}`));
+        try { onDone(); } catch {}
         return;
       }
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const parsed = JSON.parse(line.slice(6));
-              onEvent(parsed);
-            } catch { /* skip malformed */ }
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const parsed = JSON.parse(line.slice(6));
+                onEvent(parsed);
+                if (parsed.type === 'done') {
+                  try { onDone(); } catch {}
+                }
+              } catch { /* skip malformed */ }
+            }
           }
         }
+        if (buffer.startsWith('data: ')) {
+          try { onEvent(JSON.parse(buffer.slice(6))); } catch {}
+        }
+      } catch (e: any) {
+        if (e?.name !== 'AbortError') onError(e);
+      } finally {
+        try { onDone(); } catch {}
       }
     }).catch((err) => {
       if (err.name !== 'AbortError') onError(err);
+      try { onDone(); } catch {}
     });
     return controller;
   },

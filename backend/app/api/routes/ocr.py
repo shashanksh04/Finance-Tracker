@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Request
 from app.api.deps import get_current_user
 from app.models.user import User
 from app.services.ocr_service import OCRService
+from app.api.routes.auth import limiter
 from pydantic import BaseModel
 from typing import Optional
 import os, tempfile
@@ -19,7 +20,8 @@ class OCRScanResponse(BaseModel):
 
 
 @router.post("/scan", response_model=OCRScanResponse)
-async def scan_file(file: UploadFile = File(...), user: User = Depends(get_current_user)):
+@limiter.limit("20/minute")
+async def scan_file(request: Request, file: UploadFile = File(...), user: User = Depends(get_current_user)):
     ext = os.path.splitext(file.filename)[1] if file.filename else ".pdf"
     if ext.lower() not in (".pdf", ".png", ".jpg", ".jpeg", ".bmp", ".tiff"):
         raise HTTPException(status_code=400, detail="Unsupported file type")

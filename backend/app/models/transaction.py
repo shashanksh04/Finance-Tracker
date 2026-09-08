@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, Boolean, DateTime, Numeric, Text, ForeignKey, JSON
+from sqlalchemy import Column, String, Boolean, DateTime, Numeric, Text, ForeignKey, JSON, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.core.database import Base
@@ -7,6 +7,11 @@ from app.core.database import Base
 
 class Transaction(Base):
     __tablename__ = "transactions"
+    __table_args__ = (
+        Index("ix_transactions_user_deleted_date", "user_id", "deleted_at", "date"),
+        Index("ix_transactions_merchant_trgm", "merchant"),
+        Index("ix_transactions_user_type", "user_id", "type"),
+    )
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     account_id = Column(String(36), ForeignKey("accounts.id"), nullable=False)

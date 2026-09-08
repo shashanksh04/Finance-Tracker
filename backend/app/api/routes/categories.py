@@ -14,7 +14,7 @@ router = APIRouter(prefix="/api/categories", tags=["Categories"])
 
 
 @router.get("/")
-async def list_categories(type: str = Query(None), page: int = Query(0, ge=0), page_size: int = Query(0, ge=0, le=100), user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def list_categories(type: str = Query(None, pattern="^(income|expense)$"), page: int = Query(0, ge=0), page_size: int = Query(0, ge=0, le=100), user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     service = CategoryService(db)
     return await service.get_all(user.id, type, page, page_size)
 

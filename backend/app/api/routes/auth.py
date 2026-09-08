@@ -37,10 +37,19 @@ async def refresh(data: TokenRefresh, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/logout")
-async def logout(credentials: HTTPAuthorizationCredentials = Depends(security_scheme)):
+async def logout(request: Request, credentials: HTTPAuthorizationCredentials = Depends(security_scheme)):
     payload = decode_token(credentials.credentials)
     if payload:
         await blacklist_token(payload.jti, settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60)
+    try:
+        body = await request.json()
+        refresh_token = body.get("refresh_token") if isinstance(body, dict) else None
+        if refresh_token:
+            r_payload = decode_token(refresh_token)
+            if r_payload and r_payload.type == "refresh":
+                await blacklist_token(r_payload.jti, settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400)
+    except Exception:
+        pass
     return {"message": "Logged out successfully"}
 
 

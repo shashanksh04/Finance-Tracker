@@ -17,11 +17,11 @@ class RecurringCreate(BaseModel):
 class RecurringUpdate(BaseModel):
     account_id: Optional[str] = None
     category_id: Optional[str] = None
-    amount: Optional[float] = None
-    description: Optional[str] = None
-    merchant: Optional[str] = None
-    frequency: Optional[str] = None
-    interval_value: Optional[int] = None
+    amount: Optional[float] = Field(default=None, gt=0)
+    description: Optional[str] = Field(default=None, max_length=500)
+    merchant: Optional[str] = Field(default=None, max_length=120)
+    frequency: Optional[str] = Field(default=None, pattern="^(daily|weekly|biweekly|monthly|quarterly|yearly)$")
+    interval_value: Optional[int] = Field(default=None, ge=1, le=365)
     next_date: Optional[date] = None
     end_date: Optional[date] = None
     is_active: Optional[bool] = None

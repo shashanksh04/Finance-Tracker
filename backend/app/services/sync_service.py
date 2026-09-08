@@ -46,6 +46,22 @@ EPOCH = datetime(1970, 1, 1)
 
 EXCLUDED_COLUMNS = {"embedding_vector"}
 
+SYNC_WRITABLE_FIELDS: dict[str, set[str]] = {
+    "accounts": {"name", "type", "icon", "color", "currency", "is_archived"},
+    "categories": {"name", "icon", "color", "type", "parent_id", "sort_order"},
+    "category_rules": {"category_id", "contains_keyword", "merchant_name", "min_amount", "max_amount", "priority", "is_active"},
+    "transactions": {"account_id", "category_id", "amount", "type", "description", "merchant", "date", "is_recurring", "recurring_id", "bill_id", "notes", "tags", "is_split", "parent_split_id"},
+    "budgets": {"category_id", "amount", "period", "start_date", "end_date", "is_active", "rollover"},
+    "recurring_transactions": {"account_id", "category_id", "amount", "type", "description", "merchant", "frequency", "interval_value", "next_date", "end_date", "is_active"},
+    "goals": {"name", "target_amount", "current_amount", "deadline", "category_id", "icon", "color", "status", "monthly_contribution", "notes"},
+    "alerts": {"type", "title", "message", "severity", "category_id", "related_amount", "is_read", "is_dismissed"},
+    "alert_preferences": {"alert_type", "enabled", "threshold"},
+    "bills": {"name", "amount", "due_date", "is_paid", "paid_date", "category_id", "recurring_id", "notes"},
+    "financial_memories": {"key", "value", "context", "embedding", "memory_type", "importance"},
+}
+
+PROTECTED_FIELDS = {"user_id", "created_at", "updated_at", "deleted_at", "embedding_vector", "balance"}
+
 def _model_to_dict(obj: Any) -> dict:
     d = {}
     for col in obj.__table__.columns:
@@ -91,25 +107,26 @@ class SyncService:
             deleted: list[dict] = []
 
             if is_initial:
-                query = select(model).where(model.user_id == user_id)
+                query = select(model).where(model.user_id == user_id, model.deleted_at.is_(None))
             else:
                 query = select(model).where(
                     model.user_id == user_id,
-                    or_(
-                        model.updated_at >= last_pulled_dt,
-                        model.updated_at.is_(None),
-                    ),
+                    model.updated_at >= last_pulled_dt,
                 )
+                if model.__tablename__ in ("alerts", "alert_preferences", "financial_memories"):
+                    pass
 
             records = await self.db.execute(query)
             for row in records.scalars().all():
                 record_dict = _model_to_dict(row)
-                if row.deleted_at:
+                if row.deleted_at and row.deleted_at >= last_pulled_dt:
                     deleted.append(record_dict)
-                elif (
+                    continue
+                if row.deleted_at:
+                    continue
+                if (
                     row.created_at
                     and row.created_at >= last_pulled_dt
-                    and row.created_at == row.updated_at
                 ):
                     created.append(record_dict)
                 else:
@@ -136,32 +153,39 @@ class SyncService:
             updated_count = 0
             deleted_count = 0
 
+            writable = SYNC_WRITABLE_FIELDS.get(table_name, set())
             for record_data in operations.get("created", []):
-                record_data["user_id"] = user_id
-                if "deleted_at" not in record_data:
-                    record_data["deleted_at"] = None
+                rid = record_data.get("id")
+                if not rid:
+                    continue
                 existing = await self.db.execute(
-                    select(model).where(model.id == record_data["id"])
+                    select(model).where(model.id == rid)
                 )
                 if existing.scalar_one_or_none():
                     continue
-                obj = model(**record_data)
+                filtered = {k: v for k, v in record_data.items() if k in writable or k == "id"}
+                filtered["user_id"] = user_id
+                filtered["deleted_at"] = None
+                obj = model(**filtered)
                 self.db.add(obj)
                 created_count += 1
 
             for record_data in operations.get("updated", []):
+                rid = record_data.get("id")
+                if not rid:
+                    continue
                 existing = await self.db.execute(
                     select(model).where(
-                        model.id == record_data["id"],
+                        model.id == rid,
                         model.user_id == user_id,
                     )
                 )
                 obj = existing.scalar_one_or_none()
                 if not obj:
-                    record_data["user_id"] = user_id
-                    if "deleted_at" not in record_data:
-                        record_data["deleted_at"] = None
-                    obj = model(**record_data)
+                    filtered = {k: v for k, v in record_data.items() if k in writable or k == "id"}
+                    filtered["user_id"] = user_id
+                    filtered["deleted_at"] = None
+                    obj = model(**filtered)
                     self.db.add(obj)
                     created_count += 1
                 else:
@@ -170,8 +194,9 @@ class SyncService:
                     server_updated = obj.updated_at
                     if server_updated and client_dt > server_updated:
                         for field, value in record_data.items():
-                            if field not in ("id", "user_id", "created_at", "user"):
+                            if field in writable:
                                 setattr(obj, field, value)
+                        obj.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
                         updated_count += 1
 
             for record_data in operations.get("deleted", []):

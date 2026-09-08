@@ -126,6 +126,13 @@ class ImportService:
                 date=txn_date,
             )
             self.db.add(txn)
+            from decimal import Decimal
+            acc_res = await self.db.execute(select(Account).where(Account.id == account_id).with_for_update())
+            acct = acc_res.scalar_one_or_none()
+            if acct:
+                amt = Decimal(str(parsed["amount"]))
+                cur = Decimal(str(acct.balance or 0))
+                acct.balance = cur + amt if txn_type == "income" else cur - amt
             imported += 1
 
         await self.db.flush()
@@ -141,8 +148,15 @@ class ImportService:
             raise HTTPException(status_code=400, detail=f"Unsupported file format: {ext}")
 
     async def _parse_csv(self, file_path: str, options: ImportOptions) -> tuple[list[dict], list[str]]:
+        allowed_delims = {",", ";", "\t", "|", ":"}
+        delim = options.delimiter if options.delimiter in allowed_delims else ","
+        if len(delim) != 1:
+            delim = ","
+        size = os.path.getsize(file_path)
+        if size > 10 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="CSV too large (max 10MB)")
         with open(file_path, "r", encoding="utf-8-sig") as f:
-            reader = csv.reader(f, delimiter=options.delimiter)
+            reader = csv.reader(f, delimiter=delim)
             raw = list(reader)
         if not raw:
             return [], []

@@ -7,16 +7,15 @@ from app.services.alert_service import AlertService
 
 def _run_async(coro):
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
+        if loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(asyncio.run, coro)
+                return future.result(timeout=300)
     except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    if loop.is_running():
-        import concurrent.futures
-        with concurrent.futures.ThreadPoolExecutor() as pool:
-            future = pool.submit(asyncio.run, coro)
-            return future.result()
-    return loop.run_until_complete(coro)
+        pass
+    return asyncio.run(coro)
 
 
 @celery_app.task
@@ -61,10 +60,10 @@ async def _cleanup():
     from app.models.alert import Alert
     cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=30)
     async with async_session_factory() as db:
-        stmt = delete(Alert).where(Alert.created_at < cutoff)
-        await db.execute(stmt)
+        stmt = delete(Alert).where(Alert.created_at < cutoff, Alert.deleted_at.is_(None))
+        result = await db.execute(stmt)
         await db.commit()
-        print(f"Cleaned up old alerts")
+        print(f"Cleaned up {result.rowcount} old alerts")
 
 
 @celery_app.task

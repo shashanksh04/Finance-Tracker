@@ -7,8 +7,8 @@ A comprehensive finance management application with AI-powered features, built w
 **Frontend:** React 18, TypeScript, Vite 6, Tailwind CSS 3, Recharts, Zustand, React Router 6, Lucide Icons
 **Backend:** Python 3.11+, FastAPI, Pydantic, SQLAlchemy 2.0, Alembic, Celery, Redis
 **Database:** PostgreSQL
-**AI/ML:** Ollama (local LLM), Sentence Transformers (embeddings), PaddleOCR (document scanning)
-**Auth:** JWT with refresh tokens, bcrypt
+**AI/ML:** Ollama Cloud `gpt-oss:120b-cloud` + `mxbai-embed-large` 1024 (pgvector), PaddleOCR + EasyOCR, Faster-Whisper `base.en`
+**Auth:** JWT (HS256, 30m access / 7d refresh rotation) + Redis blacklist, bcrypt, rate-limited
 
 ## Features
 
@@ -80,12 +80,13 @@ celery -A app.tasks worker --loglevel=info
 celery -A app.tasks beat --loglevel=info
 ```
 
-### Ollama Setup (Optional)
+### Ollama Setup (Optional — cloud by default)
 
 ```bash
-# Install Ollama from https://ollama.ai
-ollama pull mistral:7b
-ollama pull nomic-embed-text
+# Cloud: set OLLAMA_BASE_URL=https://ollama.com + OLLAMA_API_KEY
+# Local:
+ollama pull gpt-oss:120b-cloud
+ollama pull mxbai-embed-large
 ```
 
 ## Architecture
@@ -93,27 +94,20 @@ ollama pull nomic-embed-text
 ```
 backend/
 ├── app/
-│   ├── api/routes/     # REST API endpoints
-│   ├── core/           # Config, security, database
+│   ├── api/routes/     # REST: auth, accounts, categories, transactions, budgets, recurring, goals, alerts, bills, memories, analysis, copilot, ocr, import, voice, ws, sync, admin
+│   ├── core/           # Config, security, database, redis, currency, authenticated_static
 │   ├── models/         # SQLAlchemy models
 │   ├── schemas/        # Pydantic schemas
-│   ├── services/       # Business logic
+│   ├── services/       # Business logic incl. OCR/Whisper/Import/Sync
 │   ├── tasks/          # Celery async tasks
-│   ├── copilot/        # AI Copilot service
-│   └── embeddings/     # Embedding service
+│   ├── copilot/        # AI Copilot LangGraph
+│   ├── embeddings/     # Embedding service
+│   └── ws/             # WebSocket manager
 ├── alembic/            # Database migrations
 └── uploads/            # File uploads
 
-frontend/
-├── src/
-│   ├── components/     # UI and layout components
-│   │   ├── layout/     # Dashboard layout, sidebar, topbar
-│   │   └── ui/         # Reusable UI components
-│   ├── pages/          # Page components
-│   ├── services/       # API client
-│   ├── store/          # Zustand state management
-│   ├── types/          # TypeScript interfaces
-│   └── utils/          # Utility functions
+frontend/            # React SPA (Vite, Tailwind, Zustand, Recharts)
+
 ```
 
 ## API Endpoints
@@ -133,6 +127,12 @@ frontend/
 | `/api/memories/*` | Financial memory |
 | `/api/analysis/*` | Dashboard and period analysis |
 | `/api/copilot/*` | AI Copilot chat and decision simulation |
+| `/api/ocr/*` | OCR bill scan |
+| `/api/import/*` | CSV/Excel preview & execute |
+| `/api/voice/*` | Whisper transcription |
+| `/api/sync/*` | Offline pull/push |
+| `/api/admin/*` | Admin stats |
+| `/ws` | WebSocket real-time |
 
 ## Alert Types
 

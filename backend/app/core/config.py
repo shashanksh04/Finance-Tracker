@@ -8,17 +8,17 @@ class Settings(BaseSettings):
     VERSION: str = "1.0.0"
     DEBUG: bool = False
 
-    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/finance_tracker"
-    DATABASE_URL_SYNC: str = "postgresql+psycopg2://postgres:postgres@localhost:5432/finance_tracker"
+    DATABASE_URL: str = "postgresql+asyncpg://finance_user:finance_pass@localhost:5432/finance_db"
+    DATABASE_URL_SYNC: str = "postgresql+psycopg2://finance_user:finance_pass@localhost:5432/finance_db"
 
-    SECRET_KEY: str = "change-me-in-production"
+    SECRET_KEY: str = ""
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
-    REDIS_URL: str = "redis://localhost:6379/0"
-    CELERY_BROKER_URL: str = "redis://localhost:6379/1"
-    CELERY_RESULT_BACKEND: str = "redis://localhost:6379/2"
+    REDIS_URL: str = "redis://:devpassword@localhost:6379/0"
+    CELERY_BROKER_URL: str = "redis://:devpassword@localhost:6379/1"
+    CELERY_RESULT_BACKEND: str = "redis://:devpassword@localhost:6379/2"
 
     OLLAMA_BASE_URL: str = "https://ollama.com"
     OLLAMA_MODEL: str = "gpt-oss:120b-cloud"
@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     EMBEDDING_MODEL: str = "mxbai-embed-large"
     EMBEDDING_DIMENSION: int = 1024
     CONVERSATION_TTL_HOURS: int = 24
+
+    WHISPER_MODEL: str = "base.en"
+    WHISPER_DEVICE: str = "cpu"
+    WHISPER_COMPUTE_TYPE: str = "auto"
+    WHISPER_LANGUAGE: str = ""
 
     UPLOAD_DIR: str = "uploads"
     CORS_ORIGINS: str = "http://localhost:5173"

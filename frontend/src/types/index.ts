@@ -234,6 +234,23 @@ export interface AuthTokens {
   token_type: string;
 }
 
+export type ProposedActionType =
+  | 'create_transaction'
+  | 'update_transaction'
+  | 'delete_transaction'
+  | 'create_budget'
+  | 'create_goal'
+  | 'create_category'
+  | 'create_account'
+  | 'mark_bill_paid';
+
+export interface ProposedAction {
+  id: string;
+  action_type: ProposedActionType;
+  summary: string;
+  payload: Record<string, any>;
+}
+
 export interface PaginatedResponse<T> {
   items: T[];
   total: number;

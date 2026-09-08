@@ -22,6 +22,7 @@ class AccountService:
         if not include_archived:
             query = query.where(Account.is_archived == False)
         query = query.order_by(Account.created_at)
+        total = None
         if page > 0 and page_size > 0:
             count_query = select(func.count()).select_from(query.subquery())
             total = (await self.db.execute(count_query)).scalar() or 0
@@ -35,9 +36,15 @@ class AccountService:
                 "total": total,
                 "page": page,
                 "page_size": page_size,
-                "total_pages": max(1, (total + page_size - 1) // page_size),
+                "total_pages": max(1, (total + page_size - 1) // page_size) if total else 1,
             }
-        return enriched
+        return {
+            "items": enriched,
+            "total": total if total is not None else len(enriched),
+            "page": 1,
+            "page_size": len(enriched) if enriched else 1,
+            "total_pages": 1,
+        }
 
     async def get_by_id(self, user_id: str, account_id: str) -> Account:
         result = await self.db.execute(
@@ -74,10 +81,10 @@ class AccountService:
         from app.models.recurring import RecurringTransaction
         now = datetime.now(timezone.utc).replace(tzinfo=None)
         await self.db.execute(
-            Transaction.__table__.update().where(Transaction.account_id == account_id).values(deleted_at=now)
+            Transaction.__table__.update().where(Transaction.account_id == account_id, Transaction.deleted_at.is_(None)).values(deleted_at=now, updated_at=now)
         )
         await self.db.execute(
-            RecurringTransaction.__table__.update().where(RecurringTransaction.account_id == account_id).values(deleted_at=now)
+            RecurringTransaction.__table__.update().where(RecurringTransaction.account_id == account_id, RecurringTransaction.deleted_at.is_(None)).values(deleted_at=now, updated_at=now)
         )
         account.deleted_at = now
         await self.db.flush()

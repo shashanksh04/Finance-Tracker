@@ -24,6 +24,7 @@ class GoalService:
         if status_filter:
             query = query.where(Goal.status == status_filter)
         query = query.order_by(Goal.created_at.desc())
+        total = None
         if page > 0 and page_size > 0:
             count_query = select(func.count()).select_from(query.subquery())
             total = (await self.db.execute(count_query)).scalar() or 0
@@ -37,9 +38,15 @@ class GoalService:
                 "total": total,
                 "page": page,
                 "page_size": page_size,
-                "total_pages": max(1, (total + page_size - 1) // page_size),
+                "total_pages": max(1, (total + page_size - 1) // page_size) if total else 1,
             }
-        return enriched
+        return {
+            "items": enriched,
+            "total": total if total is not None else len(enriched),
+            "page": 1,
+            "page_size": len(enriched) if enriched else 1,
+            "total_pages": 1,
+        }
 
     async def get_by_id(self, user_id: str, goal_id: str) -> dict:
         result = await self.db.execute(

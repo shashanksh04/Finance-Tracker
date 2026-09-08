@@ -1,5 +1,7 @@
+import re
+import posixpath
+import uuid as uuid_lib
 from urllib.parse import unquote
-import os
 
 from starlette.responses import PlainTextResponse
 from fastapi.staticfiles import StaticFiles
@@ -30,15 +32,22 @@ class AuthenticatedStaticFiles(StaticFiles):
         if await is_token_blacklisted(payload.jti):
             return PlainTextResponse("Token revoked", status_code=401)
 
-        full_path = scope.get("path", "")
-        if "/bills/" in full_path:
-            bill_id = unquote(full_path.rsplit("/bills/", 1)[-1])
-            bill_id = os.path.splitext(bill_id)[0]
-            if bill_id:
-                async with async_session_factory() as db:
-                    result = await db.execute(select(Bill.user_id).where(Bill.id == bill_id))
-                    owner = result.scalar_one_or_none()
-                if owner is None or owner != payload.sub:
-                    return PlainTextResponse("Forbidden", status_code=403)
+        raw_path = scope.get("path", "")
+        decoded = unquote(raw_path)
+        normalized = posixpath.normpath(decoded)
+        if ".." in normalized.split("/"):
+            return PlainTextResponse("Forbidden", status_code=403)
+        m = re.match(r"^/uploads/bills/([^/]+?)(?:\.[^/.]+)?$", normalized)
+        if m:
+            bill_id = m.group(1)
+            try:
+                uuid_lib.UUID(bill_id)
+            except ValueError:
+                return PlainTextResponse("Forbidden", status_code=403)
+            async with async_session_factory() as db:
+                result = await db.execute(select(Bill.user_id).where(Bill.id == bill_id, Bill.deleted_at.is_(None)))
+                owner = result.scalar_one_or_none()
+            if owner is None or str(owner) != str(payload.sub):
+                return PlainTextResponse("Forbidden", status_code=403)
 
         return await super().get_response(path, scope)

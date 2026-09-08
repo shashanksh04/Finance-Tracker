@@ -22,6 +22,7 @@ class CategoryService:
         if type_filter:
             query = query.where(Category.type == type_filter)
         query = query.order_by(Category.sort_order)
+        total = None
         if page > 0 and page_size > 0:
             count_query = select(func.count()).select_from(query.subquery())
             total = (await self.db.execute(count_query)).scalar() or 0
@@ -34,9 +35,15 @@ class CategoryService:
                 "total": total,
                 "page": page,
                 "page_size": page_size,
-                "total_pages": max(1, (total + page_size - 1) // page_size),
+                "total_pages": max(1, (total + page_size - 1) // page_size) if total else 1,
             }
-        return items
+        return {
+            "items": items,
+            "total": total if total is not None else len(items),
+            "page": 1,
+            "page_size": len(items) if items else 1,
+            "total_pages": 1,
+        }
 
     async def get_by_id(self, user_id: str, category_id: str) -> Category:
         result = await self.db.execute(

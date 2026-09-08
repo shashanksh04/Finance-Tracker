@@ -48,8 +48,10 @@ export function TransactionsPage() {
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
-    accountsApi.getAll().then(({ data }) => setAccounts(data));
-    categoriesApi.getAll().then(({ data }) => setCategories(data));
+    const abort = new AbortController();
+    accountsApi.getAll().then(({ data }) => { if (!abort.signal.aborted) setAccounts((data as any).items ?? data); }).catch(() => {});
+    categoriesApi.getAll().then(({ data }) => { if (!abort.signal.aborted) setCategories((data as any).items ?? data); }).catch(() => {});
+    return () => abort.abort();
   }, []);
 
   const openCreate = () => { setEditing(null); reset({ account_id: accounts[0]?.id || '', category_id: '', amount: 0, type: 'expense', description: '', merchant: '', date: new Date().toISOString().split('T')[0] }); setShowModal(true); };
@@ -76,11 +78,15 @@ export function TransactionsPage() {
 
   const handleBillScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    const input = e.target as HTMLInputElement;
     if (!file) return;
+    if (file.size > 10 * 1024 * 1024) { toast.error('File too large (max 10MB)'); input.value = ''; return; }
+    const allowed = ['.pdf','.png','.jpg','.jpeg','.bmp','.tiff'];
+    const ext = '.' + (file.name.split('.').pop() || '').toLowerCase();
+    if (!allowed.includes(ext)) { toast.error('Unsupported file type'); input.value = ''; return; }
     setScanning(true);
     try {
       const { data } = await ocrApi.scan(file);
-      e.target.value = '';
       if (data.confidence && data.confidence > 0) {
         setOcrScan({
           amount: data.extracted_amount || 0,
@@ -94,19 +100,21 @@ export function TransactionsPage() {
         toast.error('No text could be read from the file');
       }
     } catch { toast.error('Failed to scan file'); }
-    finally { setScanning(false); }
+    finally { setScanning(false); input.value = ''; }
   };
 
   const confirmOcrTransaction = async () => {
     if (!ocrScan) return;
     if (!ocrScan.account_id) { toast.error('Select an account'); return; }
+    if (!ocrScan.amount || ocrScan.amount <= 0) { toast.error('Amount must be greater than 0'); return; }
+    if (!ocrScan.description?.trim()) { toast.error('Description required'); return; }
     try {
       await transactionsApi.create({
         account_id: ocrScan.account_id,
         category_id: ocrScan.category_id || null,
         amount: ocrScan.amount,
         type: 'expense',
-        description: ocrScan.description,
+        description: ocrScan.description.trim(),
         merchant: ocrScan.merchant || null,
         date: ocrScan.date,
       });
@@ -151,14 +159,14 @@ export function TransactionsPage() {
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-6">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400 dark:text-surface-500" />
-          <input type="text" placeholder="Search transactions..." value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+          <input type="text" placeholder="Search transactions..." value={filters.search} onChange={(e) => { setFilters({ ...filters, search: e.target.value }); setPage(1); }}
             className="input-field pl-10" />
         </div>
         <div className="flex gap-3">
-          <select value={filters.type} onChange={(e) => setFilters({ ...filters, type: e.target.value })} className="select-field flex-1 sm:w-32">
+          <select value={filters.type} onChange={(e) => { setFilters({ ...filters, type: e.target.value }); setPage(1); }} className="select-field flex-1 sm:w-32">
             <option value="">All</option><option value="income">Income</option><option value="expense">Expense</option>
           </select>
-          <select value={filters.account_id} onChange={(e) => setFilters({ ...filters, account_id: e.target.value })} className="select-field flex-1 sm:w-40">
+          <select value={filters.account_id} onChange={(e) => { setFilters({ ...filters, account_id: e.target.value }); setPage(1); }} className="select-field flex-1 sm:w-40">
             <option value="">All Accounts</option>
             {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>

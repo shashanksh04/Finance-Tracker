@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { User, Lock, Bell, Palette, LogOut, Save, DollarSign, Sun, Moon } from 'lucide-react';
@@ -18,6 +18,8 @@ export function SettingsPage() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('profile');
   const [currencyCode, setCurrencyCode] = useState(user?.settings?.currency || 'INR');
+  useEffect(() => { if (user?.settings?.currency) setCurrencyCode(user.settings.currency); }, [user?.settings?.currency]);
+  useEffect(() => { if (user) profileMethods.reset({ full_name: user.full_name || '' }); }, [user?.full_name]);
 
   const profileMethods = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),

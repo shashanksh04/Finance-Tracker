@@ -13,16 +13,23 @@ const CURRENCY_LOCALE: Record<string, string> = {
   CNY: 'zh-CN',
 };
 
+const ZERO_DECIMAL = new Set(['JPY','KRW','VND']);
+let cachedCurrency: string | null = null;
 export function formatCurrency(amount: number, currency?: string): string {
-  const cur = currency || getDefaultCurrency();
+  const cur = currency || cachedCurrency || getDefaultCurrency();
+  if (!currency) cachedCurrency = cur;
   const locale = CURRENCY_LOCALE[cur] || 'en-US';
-  const frac = cur === 'JPY' ? 0 : 2;
-  return new Intl.NumberFormat(locale, {
-    style: 'currency',
-    currency: cur,
-    minimumFractionDigits: frac,
-    maximumFractionDigits: frac,
-  }).format(amount);
+  const frac = ZERO_DECIMAL.has(cur) ? 0 : 2;
+  try {
+    return new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency: cur,
+      minimumFractionDigits: frac,
+      maximumFractionDigits: frac,
+    }).format(amount);
+  } catch {
+    return `${cur} ${amount.toFixed(frac)}`;
+  }
 }
 
 export function getDefaultCurrency(): string {

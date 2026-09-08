@@ -51,7 +51,7 @@ class CategoryRuleService:
 
     async def match_transaction(self, user_id: str, description: str, merchant: str = None, amount: float = None):
         result = await self.db.execute(
-            select(CategoryRule).where(CategoryRule.user_id == user_id, CategoryRule.is_active == True)
+            select(CategoryRule).where(CategoryRule.user_id == user_id, CategoryRule.is_active == True, CategoryRule.deleted_at.is_(None))
         )
         rules = list(result.scalars().all())
         best = None

@@ -20,6 +20,14 @@ class CopilotResponse(BaseModel):
     suggested_actions: Optional[List[dict]] = None
     insights: Optional[List[str]] = None
     agent_trace: Optional[List[dict]] = None
+    proposed_actions: Optional[List[dict]] = None
+
+
+class ProposedAction(BaseModel):
+    id: str
+    action_type: str
+    summary: str
+    payload: dict = {}
 
 
 class StreamChunk(BaseModel):

@@ -71,13 +71,14 @@ class RecurringService:
         return True
 
     async def process_due(self) -> list[dict]:
+        from decimal import Decimal
         today = date.today()
         result = await self.db.execute(
             select(RecurringTransaction).where(
                 RecurringTransaction.is_active == True,
                 RecurringTransaction.next_date <= today,
                 RecurringTransaction.deleted_at.is_(None),
-            )
+            ).with_for_update(skip_locked=True)
         )
         items = list(result.scalars().all())
         created = []
@@ -96,6 +97,12 @@ class RecurringService:
                 recurring_id=item.id,
             )
             self.db.add(txn)
+            acc_res = await self.db.execute(select(Account).where(Account.id == item.account_id).with_for_update())
+            acct = acc_res.scalar_one_or_none()
+            if acct:
+                amt = Decimal(str(item.amount))
+                cur = Decimal(str(acct.balance or 0))
+                acct.balance = cur + amt if item.type == "income" else cur - amt
             item.next_date = self._calculate_next_date(item.next_date, item.frequency, item.interval_value)
             if item.end_date and item.next_date > item.end_date:
                 item.is_active = False

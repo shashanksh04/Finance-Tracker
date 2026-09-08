@@ -39,7 +39,7 @@ class AuthService:
         self.db = db
 
     async def register(self, data: UserCreate) -> dict:
-        result = await self.db.execute(select(User).where(User.email == data.email))
+        result = await self.db.execute(select(User).where(User.email == data.email, User.deleted_at.is_(None)))
         if result.scalar_one_or_none():
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
         user = User(
@@ -49,7 +49,13 @@ class AuthService:
             settings={"currency": "INR"},
         )
         self.db.add(user)
-        await self.db.flush()
+        try:
+            await self.db.flush()
+        except Exception as e:
+            from sqlalchemy.exc import IntegrityError
+            if isinstance(e, IntegrityError) or "UniqueViolation" in str(type(e)) or "duplicate" in str(e).lower():
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
+            raise
 
         await self._seed_default_categories(user.id)
         await self._seed_default_account(user.id)
@@ -74,10 +80,12 @@ class AuthService:
         await self.db.flush()
 
     async def login(self, data: UserLogin) -> dict:
-        result = await self.db.execute(select(User).where(User.email == data.email))
+        result = await self.db.execute(select(User).where(User.email == data.email, User.deleted_at.is_(None)))
         user = result.scalar_one_or_none()
         if not user or not verify_password(data.password, user.password_hash):
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+        if not user.is_active:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User inactive")
         self.db.add(LoginRecord(user_id=user.id))
         await self.db.flush()
         return {
@@ -87,9 +95,18 @@ class AuthService:
         }
 
     async def refresh_token(self, refresh_token: str) -> dict:
+        from app.core.security import is_token_blacklisted, blacklist_token
+        from app.core.config import settings
         payload = decode_token(refresh_token)
         if not payload or payload.type != "refresh":
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+        if await is_token_blacklisted(payload.jti):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token revoked")
+        result = await self.db.execute(select(User).where(User.id == payload.sub, User.deleted_at.is_(None)))
+        user = result.scalar_one_or_none()
+        if not user or not user.is_active:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User inactive or not found")
+        await blacklist_token(payload.jti, settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400)
         return {
             "access_token": create_access_token(payload.sub),
             "refresh_token": create_refresh_token(payload.sub),
@@ -111,8 +128,11 @@ class AuthService:
         if data.full_name is not None:
             user.full_name = data.full_name
         if data.settings is not None:
+            ALLOWED_SETTINGS = {"currency", "notifications_enabled", "theme", "language"}
             current = dict(user.settings or {})
-            current.update(data.settings)
+            for k, v in data.settings.items():
+                if k in ALLOWED_SETTINGS:
+                    current[k] = v
             user.settings = current
         await self.db.flush()
         return user

@@ -30,7 +30,7 @@ class AlertService:
 
     async def mark_read(self, user_id: str, alert_id: str) -> Alert:
         result = await self.db.execute(
-            select(Alert).where(Alert.id == alert_id, Alert.user_id == user_id)
+            select(Alert).where(Alert.id == alert_id, Alert.user_id == user_id, Alert.deleted_at.is_(None))
         )
         alert = result.scalar_one_or_none()
         if alert:
@@ -40,7 +40,7 @@ class AlertService:
 
     async def dismiss(self, user_id: str, alert_id: str) -> Alert:
         result = await self.db.execute(
-            select(Alert).where(Alert.id == alert_id, Alert.user_id == user_id)
+            select(Alert).where(Alert.id == alert_id, Alert.user_id == user_id, Alert.deleted_at.is_(None))
         )
         alert = result.scalar_one_or_none()
         if alert:
@@ -50,7 +50,7 @@ class AlertService:
 
     async def get_preferences(self, user_id: str) -> list[AlertPreference]:
         result = await self.db.execute(
-            select(AlertPreference).where(AlertPreference.user_id == user_id)
+            select(AlertPreference).where(AlertPreference.user_id == user_id, AlertPreference.deleted_at.is_(None))
         )
         prefs = list(result.scalars().all())
         if not prefs:
@@ -65,7 +65,7 @@ class AlertService:
 
     async def update_preference(self, user_id: str, alert_type: str, enabled: bool, threshold: float = None) -> AlertPreference:
         result = await self.db.execute(
-            select(AlertPreference).where(AlertPreference.user_id == user_id, AlertPreference.alert_type == alert_type)
+            select(AlertPreference).where(AlertPreference.user_id == user_id, AlertPreference.alert_type == alert_type, AlertPreference.deleted_at.is_(None))
         )
         pref = result.scalar_one_or_none()
         if not pref:

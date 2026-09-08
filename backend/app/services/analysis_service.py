@@ -122,7 +122,8 @@ class AnalysisService:
         return sorted(breakdown, key=lambda x: x["amount"], reverse=True)
 
     async def _trends(self, user_id: str, start: date, end: date, account_id: str = None) -> list:
-        trends = []
+        import asyncio
+        intervals = []
         current = start
         while current < end:
             if (end - start).days <= 35:
@@ -136,9 +137,20 @@ class AnalysisService:
                 label = f"Q{(current.month - 1) // 3 + 1} {current.year}"
             if next_d > end:
                 next_d = end
-            inc = await self._sum_with_filter([Transaction.user_id == user_id, Transaction.date >= current, Transaction.date < next_d, Transaction.type == "income"])
-            exp = await self._sum_with_filter([Transaction.user_id == user_id, Transaction.date >= current, Transaction.date < next_d, Transaction.type == "expense"])
-            cnt = await self._count_with_filter([Transaction.user_id == user_id, Transaction.date >= current, Transaction.date < next_d])
+            intervals.append((current, next_d, label))
+            current = next_d
+
+        async def _fetch_interval(cur: date, nxt: date):
+            inc = await self._sum_with_filter([Transaction.user_id == user_id, Transaction.date >= cur, Transaction.date < nxt, Transaction.type == "income"])
+            exp = await self._sum_with_filter([Transaction.user_id == user_id, Transaction.date >= cur, Transaction.date < nxt, Transaction.type == "expense"])
+            cnt = await self._count_with_filter([Transaction.user_id == user_id, Transaction.date >= cur, Transaction.date < nxt])
+            return cur, inc, exp, cnt
+
+        results = await asyncio.gather(*[_fetch_interval(s, e) for s, e, _ in intervals])
+        lookup = {r[0]: r for r in results}
+        trends = []
+        for cur, nxt, label in intervals:
+            _, inc, exp, cnt = lookup[cur]
             trends.append({
                 "period_label": label,
                 "income": round(float(inc), 2),
@@ -146,7 +158,6 @@ class AnalysisService:
                 "net": round(float(inc) - float(exp), 2),
                 "transaction_count": cnt,
             })
-            current = next_d
         return trends
 
     async def _top_merchants(self, user_id: str, start: date, end: date) -> list:
@@ -180,6 +191,7 @@ class AnalysisService:
         return insights
 
     async def get_dashboard_summary(self, user_id: str) -> dict:
+        import asyncio
         today = date.today()
         month_start = today.replace(day=1)
         if today.month == 12:
@@ -187,16 +199,17 @@ class AnalysisService:
         else:
             month_end = today.replace(month=today.month + 1, day=1)
 
-        monthly_income = await self._sum_with_filter([Transaction.user_id == user_id, Transaction.date >= month_start, Transaction.date < month_end, Transaction.type == "income"])
-        monthly_expenses = await self._sum_with_filter([Transaction.user_id == user_id, Transaction.date >= month_start, Transaction.date < month_end, Transaction.type == "expense"])
-
+        monthly_income_coro = self._sum_with_filter([Transaction.user_id == user_id, Transaction.date >= month_start, Transaction.date < month_end, Transaction.type == "income"])
+        monthly_expenses_coro = self._sum_with_filter([Transaction.user_id == user_id, Transaction.date >= month_start, Transaction.date < month_end, Transaction.type == "expense"])
+        cat_breakdown_coro = self._category_breakdown(user_id, month_start, month_end, None)
         from app.models.account import Account
         from app.services.account_service import AccountService
         acct_service = AccountService(self.db)
-        accounts = await acct_service.get_all(user_id)
-        total_balance = sum(float(a.balance) for a in accounts)
 
-        cat_breakdown = await self._category_breakdown(user_id, month_start, month_end, None)
+        monthly_income, monthly_expenses, cat_breakdown, accounts_raw = await asyncio.gather(
+            monthly_income_coro, monthly_expenses_coro, cat_breakdown_coro, acct_service.get_all(user_id)
+        )
+        total_balance = sum(float(a.balance) for a in (accounts_raw["items"] if isinstance(accounts_raw, dict) else accounts_raw))
 
         from app.models.budget import Budget
         from sqlalchemy.orm import joinedload
@@ -338,7 +351,7 @@ class AnalysisService:
 
         result = await self.db.execute(
             select(
-                func.extract('day', Transaction.date).label('day'),
+                func.cast(func.extract('day', Transaction.date), func.Integer).label('day'),
                 Transaction.type,
                 func.coalesce(func.sum(Transaction.amount), 0).label('total'),
                 func.count(Transaction.id).label('cnt'),
@@ -346,7 +359,7 @@ class AnalysisService:
                 Transaction.user_id == user_id,
                 Transaction.date >= start, Transaction.date < end,
                 Transaction.deleted_at.is_(None),
-            ).group_by(func.extract('day', Transaction.date), Transaction.type)
+            ).group_by(func.cast(func.extract('day', Transaction.date), func.Integer), Transaction.type)
         )
         days = {}
         for r in result.all():

@@ -31,6 +31,36 @@ INTENT_PATTERNS = {
         r"\bfreelance", r"\bhow much.*(make|earn|get paid)",
         r"\bwhat.*(income|salary|earn)",
     ],
+    "create_transaction": [
+        r"\b(add|record|log|enter|save|create)\b.*\b(transaction|expense|spending|purchase|payment|income|salary|deposit|gain|spend)",
+        r"\b(add|record|log|enter|create)\b.*\b(₹|rs\.?|rupees|dollars|\$)",
+    ],
+    "update_transaction": [
+        r"\b(edit|change|update|modify|fix|correct)\b.*\b(transaction|expense|payment|income)",
+        r"\b(edit|change|update|modify|fix|correct)\b.*\bamount",
+    ],
+    "delete_transaction": [
+        r"\b(delete|remove|erase|cancel|undo)\b.*\b(transaction|expense|payment|income)",
+        r"\bget rid of\b",
+    ],
+    "create_budget": [
+        r"\b(add|set|create|make|update)\b.*\bbudget",
+        r"\blimit.*spending\b",
+    ],
+    "create_goal": [
+        r"\b(add|create|set|start|make)\b.*\bgoal",
+        r"\bsaving goal\b",
+    ],
+    "create_category": [
+        r"\b(add|create|make|new)\b.*\bcategor(y|ies)\b",
+    ],
+    "create_account": [
+        r"\b(add|create|open|make|new)\b.*\baccount\b",
+    ],
+    "mark_bill_paid": [
+        r"\b(mark|set)\b.*\bbill.*(paid|done)",
+        r"\bpaid.*\bbill\b",
+    ],
 }
 
 
@@ -56,4 +86,10 @@ def classify_intent(message: str) -> str:
 
 
 def is_direct_answer_intent(intent: str) -> bool:
-    return intent in ("spending_query", "budget_query", "goal_query", "bill_query", "account_query", "income_query")
+    return intent in (
+        "spending_query", "budget_query", "goal_query", "bill_query",
+        "account_query", "income_query",
+        "create_transaction", "update_transaction", "delete_transaction",
+        "create_budget", "create_goal", "create_category", "create_account",
+        "mark_bill_paid",
+    )

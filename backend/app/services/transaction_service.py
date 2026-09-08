@@ -1,3 +1,4 @@
+from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, desc, asc
 from sqlalchemy.orm import joinedload
@@ -10,12 +11,22 @@ import math
 from datetime import datetime, timezone
 
 
+def _escape_like(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def _to_decimal(value) -> Decimal:
+    if value is None:
+        return Decimal("0")
+    return Decimal(str(value))
+
+
 class TransactionService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
     async def create(self, user_id: str, data: TransactionCreate) -> Transaction:
-        result = await self.db.execute(select(Account).where(Account.id == data.account_id, Account.user_id == user_id, Account.deleted_at.is_(None)))
+        result = await self.db.execute(select(Account).where(Account.id == data.account_id, Account.user_id == user_id, Account.deleted_at.is_(None)).with_for_update())
         account = result.scalar_one_or_none()
         if not account:
             raise HTTPException(status_code=404, detail="Account not found")
@@ -37,11 +48,12 @@ class TransactionService:
         txn_data["category_id"] = category_id
         txn = Transaction(user_id=user_id, auto_rule_id=auto_rule_id, **txn_data)
         self.db.add(txn)
-        amount = float(data.amount) if data.amount is not None else 0.0
+        amount = _to_decimal(data.amount)
+        cur = _to_decimal(account.balance)
         if data.type == "income":
-            account.balance = float(account.balance or 0) + amount
+            account.balance = cur + amount
         else:
-            account.balance = float(account.balance or 0) - amount
+            account.balance = cur - amount
         if auto_rule_id:
             from app.services.category_rule_service import CategoryRuleService
             await CategoryRuleService(self.db).record_hit(auto_rule_id)
@@ -65,11 +77,13 @@ class TransactionService:
         if filters.max_amount is not None:
             query = query.where(Transaction.amount <= filters.max_amount)
         if filters.merchant:
-            query = query.where(Transaction.merchant.ilike(f"%{filters.merchant}%"))
+            esc = _escape_like(filters.merchant)
+            query = query.where(Transaction.merchant.ilike(f"%{esc}%", escape="\\"))
         if filters.search:
-            pattern = f"%{filters.search}%"
+            esc = _escape_like(filters.search)
+            pattern = f"%{esc}%"
             query = query.where(
-                Transaction.description.ilike(pattern) | Transaction.merchant.ilike(pattern) | Transaction.notes.ilike(pattern)
+                Transaction.description.ilike(pattern, escape="\\") | Transaction.merchant.ilike(pattern, escape="\\") | Transaction.notes.ilike(pattern, escape="\\")
             )
         count_query = select(func.count()).select_from(query.subquery())
         total = (await self.db.execute(count_query)).scalar() or 0
@@ -129,12 +143,12 @@ class TransactionService:
 
     async def update(self, user_id: str, txn_id: str, data: TransactionUpdate) -> Transaction:
         result = await self.db.execute(
-            select(Transaction).where(Transaction.id == txn_id, Transaction.user_id == user_id, Transaction.deleted_at.is_(None))
+            select(Transaction).where(Transaction.id == txn_id, Transaction.user_id == user_id, Transaction.deleted_at.is_(None)).with_for_update()
         )
         txn = result.scalar_one_or_none()
         if not txn:
             raise HTTPException(status_code=404, detail="Transaction not found")
-        old_amount = float(txn.amount)
+        old_amount = _to_decimal(txn.amount)
         old_type = txn.type
         old_account_id = txn.account_id
         old_category_id = txn.category_id
@@ -144,30 +158,45 @@ class TransactionService:
         if data.category_id is not None and data.category_id != old_category_id:
             from app.services.category_rule_service import CategoryRuleService
             await CategoryRuleService(self.db).learn_from_correction(user_id, txn, old_category_id, data.category_id)
-        if old_account_id:
-            old_account = await self.db.get(Account, old_account_id)
-            if old_account:
-                old_account.balance = float(old_account.balance or 0) + (old_amount if old_type == "expense" else -old_amount)
-        new_account = await self.db.get(Account, txn.account_id)
-        if new_account:
-            amt = float(txn.amount)
-            new_account.balance = float(new_account.balance or 0) + (amt if txn.type == "income" else -amt)
+        new_account_id = txn.account_id
+        new_amount = _to_decimal(txn.amount)
+        new_type = txn.type
+        if old_account_id and old_account_id == new_account_id:
+            res = await self.db.execute(select(Account).where(Account.id == old_account_id, Account.deleted_at.is_(None)).with_for_update())
+            acct = res.scalar_one_or_none()
+            if acct:
+                cur = _to_decimal(acct.balance)
+                refund = old_amount if old_type == "expense" else -old_amount
+                charge = new_amount if new_type == "income" else -new_amount
+                acct.balance = cur + refund + charge
+        else:
+            if old_account_id:
+                res_old = await self.db.execute(select(Account).where(Account.id == old_account_id).with_for_update())
+                old_account = res_old.scalar_one_or_none()
+                if old_account:
+                    old_account.balance = _to_decimal(old_account.balance) + (old_amount if old_type == "expense" else -old_amount)
+            if new_account_id:
+                res_new = await self.db.execute(select(Account).where(Account.id == new_account_id, Account.deleted_at.is_(None)).with_for_update())
+                new_account = res_new.scalar_one_or_none()
+                if new_account:
+                    new_account.balance = _to_decimal(new_account.balance) + (new_amount if new_type == "income" else -new_amount)
         await self.db.flush()
         await self.db.refresh(txn)
         return await self._enrich(txn)
 
     async def delete(self, user_id: str, txn_id: str) -> bool:
         result = await self.db.execute(
-            select(Transaction).where(Transaction.id == txn_id, Transaction.user_id == user_id, Transaction.deleted_at.is_(None))
+            select(Transaction).where(Transaction.id == txn_id, Transaction.user_id == user_id, Transaction.deleted_at.is_(None)).with_for_update()
         )
         txn = result.scalar_one_or_none()
         if not txn:
             raise HTTPException(status_code=404, detail="Transaction not found")
         txn.deleted_at = datetime.now(timezone.utc).replace(tzinfo=None)
-        account = await self.db.get(Account, txn.account_id)
+        res = await self.db.execute(select(Account).where(Account.id == txn.account_id).with_for_update())
+        account = res.scalar_one_or_none()
         if account:
-            amt = float(txn.amount)
-            account.balance = float(account.balance or 0) + (amt if txn.type == "expense" else -amt)
+            amt = _to_decimal(txn.amount)
+            account.balance = _to_decimal(account.balance) + (amt if txn.type == "expense" else -amt)
         await self.db.flush()
         return True
 
@@ -180,11 +209,17 @@ class TransactionService:
         category_name = None
         category_icon = None
         category_color = None
-        if txn.account_id:
+        if getattr(txn, "account", None) is not None and txn.account:
+            account_name = txn.account.name
+        elif txn.account_id:
             acct = await self.db.get(Account, txn.account_id)
             if acct:
                 account_name = acct.name
-        if txn.category_id:
+        if getattr(txn, "category", None) is not None and txn.category:
+            category_name = txn.category.name
+            category_icon = txn.category.icon
+            category_color = txn.category.color
+        elif txn.category_id:
             cat = await self.db.get(Category, txn.category_id)
             if cat:
                 category_name = cat.name

@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.api.deps import get_current_user
 from app.models.user import User
 from app.schemas.transaction import TransactionCreate, TransactionUpdate, TransactionResponse, PaginatedTransactions
 from app.services.transaction_service import TransactionService
+from app.api.routes.auth import limiter
 from app.ws.events import notify_dashboard_updated
 from datetime import date
 from typing import Optional
@@ -42,7 +43,8 @@ async def list_transactions(
 
 
 @router.post("/", response_model=TransactionResponse)
-async def create_transaction(data: TransactionCreate, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+@limiter.limit("60/minute")
+async def create_transaction(request: Request, data: TransactionCreate, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     service = TransactionService(db)
     txn = await service.create(user.id, data)
     await notify_dashboard_updated(user.id)

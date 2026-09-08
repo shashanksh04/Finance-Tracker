@@ -119,9 +119,7 @@ export function AlertsPage() {
             <div key={pref.id} className="flex items-center justify-between py-3 border-b border-surface-100 last:border-0">
               <div>
                 <p className="text-sm font-medium text-surface-900 dark:text-surface-100">{alertTypeLabels[pref.alert_type] || pref.alert_type}</p>
-                {pref.alert_type === 'spending_limit' && (
-                  <p className="text-xs text-surface-500 dark:text-surface-400">Threshold: {pref.threshold ? `$${pref.threshold}` : 'Not set'}</p>
-                )}
+                <p className="text-xs text-surface-500 dark:text-surface-400">Threshold: {pref.threshold ? (()=>{ try{ return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(Number(pref.threshold)); } catch{ return `${pref.threshold}`; } })() : 'Not set'}</p>
               </div>
               <button
                 onClick={() => togglePreference(pref)}

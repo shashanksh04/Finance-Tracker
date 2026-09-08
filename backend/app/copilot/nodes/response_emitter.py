@@ -44,5 +44,5 @@ def make_response_emitter(db: AsyncSession, user):
         except Exception:
             pass
 
-        return {"messages": [assistant_msg], "agent_scratchpad": []}
+        return {"messages": [assistant_msg], "agent_scratchpad": [], "proposed_actions": state.get("proposed_actions", [])}
     return response_emitter

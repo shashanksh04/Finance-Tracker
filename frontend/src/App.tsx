@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { DashboardLayout } from './components/layout/DashboardLayout';
@@ -23,17 +23,28 @@ import { AdminPage } from './pages/AdminPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuthStore();
-  if (isLoading) return <div className="flex h-screen items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" /></div>;
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  const location = useLocation();
+  if (isLoading) return <div className="flex h-screen items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent border-primary-600 animate-spin" /></div>;
+  if (!isAuthenticated) return <Navigate to="/login" replace state={{ from: location }} />;
+  return <>{children}</>;
+}
+
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading, user } = useAuthStore();
+  const location = useLocation();
+  if (isLoading) return <div className="flex h-screen items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent border-primary-600 animate-spin" /></div>;
+  if (!isAuthenticated) return <Navigate to="/login" replace state={{ from: location }} />;
+  if (!user?.is_admin) return <Navigate to="/" replace />;
   return <>{children}</>;
 }
 
 export default function App() {
   const { isAuthenticated, loadUser, tokens } = useAuthStore();
+  const tokenKey = tokens?.access_token ?? null;
 
   useEffect(() => {
-    if (tokens) loadUser(); else useAuthStore.setState({ isLoading: false });
-  }, [tokens, loadUser]);
+    if (tokenKey) loadUser(); else useAuthStore.setState({ isLoading: false });
+  }, [tokenKey]);
 
   return (
     <ErrorBoundary>
@@ -55,8 +66,9 @@ export default function App() {
           <Route path="copilot" element={<CopilotPage />} />
           <Route path="alerts" element={<AlertsPage />} />
           <Route path="settings" element={<SettingsPage />} />
-          <Route path="admin" element={<AdminPage />} />
+          <Route path="admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
         </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </ErrorBoundary>
   );
