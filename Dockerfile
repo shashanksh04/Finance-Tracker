@@ -6,7 +6,7 @@ COPY frontend/ .
 RUN npm run build
 
 FROM python:3.12-slim-bookworm
-RUN apt-get update && apt-get install -y nginx supervisor ffmpeg libgomp1 && rm -rf /var/lib/apt/lists/* && \
+RUN apt-get update && apt-get install -y nginx supervisor ffmpeg libgomp1 curl && rm -rf /var/lib/apt/lists/* && \
     rm -rf /usr/share/doc/* /usr/share/man/* /var/cache/apt/archives/*
 
 RUN addgroup --system app && adduser --system --ingroup app app
@@ -30,4 +30,5 @@ RUN mkdir -p /var/lib/nginx/body /var/lib/nginx/proxy /var/lib/nginx/fastcgi /va
 WORKDIR /app/backend
 USER app
 EXPOSE 80
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 --start-period=40s CMD curl -f http://127.0.0.1:80/health || curl -f http://127.0.0.1:80/api/health || exit 1
 ENTRYPOINT ["/entrypoint.sh"]

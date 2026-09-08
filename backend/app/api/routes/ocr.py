@@ -1,11 +1,19 @@
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Request
+import logging
+import os
+import secrets
+import shutil
+import tempfile
+from typing import Optional
+
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from pydantic import BaseModel
+
 from app.api.deps import get_current_user
 from app.models.user import User
-from app.services.ocr_service import OCRService
 from app.api.routes.auth import limiter
-from pydantic import BaseModel
-from typing import Optional
-import os, tempfile
+from app.services.ocr_service import OCRService
+
+logger = logging.getLogger(__name__)
 
 
 router = APIRouter(prefix="/api/ocr", tags=["OCR"])
@@ -22,14 +30,18 @@ class OCRScanResponse(BaseModel):
 @router.post("/scan", response_model=OCRScanResponse)
 @limiter.limit("20/minute")
 async def scan_file(request: Request, file: UploadFile = File(...), user: User = Depends(get_current_user)):
-    ext = os.path.splitext(file.filename)[1] if file.filename else ".pdf"
-    if ext.lower() not in (".pdf", ".png", ".jpg", ".jpeg", ".bmp", ".tiff"):
+    raw_ext = os.path.splitext(file.filename)[1].lower() if file.filename else ".pdf"
+    allowed = {".pdf", ".png", ".jpg", ".jpeg", ".bmp", ".tiff"}
+    if raw_ext not in allowed:
         raise HTTPException(status_code=400, detail="Unsupported file type")
     content = await file.read()
-    with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
-        tmp.write(content)
-        tmp_path = tmp.name
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="File too large")
+    tmpdir = tempfile.mkdtemp(prefix="ocr_")
+    tmp_path = os.path.join(tmpdir, f"{secrets.token_hex(16)}{raw_ext}")
     try:
+        with open(tmp_path, "wb") as f:
+            f.write(content)
         text = await OCRService.extract_text(tmp_path)
         parsed = OCRService.parse_bill_text(text)
         return OCRScanResponse(
@@ -39,5 +51,13 @@ async def scan_file(request: Request, file: UploadFile = File(...), user: User =
             confidence=parsed["confidence"],
             raw_text=text,
         )
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("OCR scan failed")
+        raise HTTPException(status_code=500, detail="OCR processing failed")
     finally:
-        os.unlink(tmp_path)
+        try:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+        except Exception:
+            pass

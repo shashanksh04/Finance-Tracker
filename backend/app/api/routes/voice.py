@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, Request
 from pydantic import BaseModel
 
@@ -9,6 +11,9 @@ from app.services.whisper_service import WhisperService
 router = APIRouter(prefix="/api/voice", tags=["Voice"])
 
 MAX_AUDIO_BYTES = 25 * 1024 * 1024
+ALLOWED_AUDIO_EXT = {"webm", "mp3", "wav", "ogg", "m4a", "mp4", "flac", "aac", "wma", "opus", "mpeg", "mpga"}
+
+logger = logging.getLogger(__name__)
 
 
 class TranscribeResponse(BaseModel):
@@ -30,11 +35,14 @@ async def transcribe(
 
     filename = file.filename or "audio.webm"
     ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "webm"
+    if ext not in ALLOWED_AUDIO_EXT:
+        raise HTTPException(status_code=400, detail="Unsupported audio type")
 
     try:
         text = await WhisperService.transcribe(data, ext)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Transcription failed: {str(e)}")
+    except Exception:
+        logger.exception("Whisper transcribe failed")
+        raise HTTPException(status_code=500, detail="Transcription failed")
 
     if not text.strip():
         raise HTTPException(status_code=400, detail="No speech detected")

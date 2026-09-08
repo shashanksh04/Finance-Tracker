@@ -26,6 +26,8 @@ class TransactionService:
         self.db = db
 
     async def create(self, user_id: str, data: TransactionCreate) -> Transaction:
+        if data.type == "transfer":
+            raise HTTPException(status_code=400, detail="Transfer requires source and target accounts - use transfer endpoint or create two transactions")
         result = await self.db.execute(select(Account).where(Account.id == data.account_id, Account.user_id == user_id, Account.deleted_at.is_(None)).with_for_update())
         account = result.scalar_one_or_none()
         if not account:
@@ -161,6 +163,8 @@ class TransactionService:
         new_account_id = txn.account_id
         new_amount = _to_decimal(txn.amount)
         new_type = txn.type
+        if new_type == "transfer" or old_type == "transfer":
+            raise HTTPException(status_code=400, detail="Transfer type not supported for single-leg update - use dedicated transfer flow")
         if old_account_id and old_account_id == new_account_id:
             res = await self.db.execute(select(Account).where(Account.id == old_account_id, Account.deleted_at.is_(None)).with_for_update())
             acct = res.scalar_one_or_none()
@@ -191,6 +195,8 @@ class TransactionService:
         txn = result.scalar_one_or_none()
         if not txn:
             raise HTTPException(status_code=404, detail="Transaction not found")
+        if txn.type == "transfer":
+            raise HTTPException(status_code=400, detail="Transfer delete not supported - use dedicated transfer flow")
         txn.deleted_at = datetime.now(timezone.utc).replace(tzinfo=None)
         res = await self.db.execute(select(Account).where(Account.id == txn.account_id).with_for_update())
         account = res.scalar_one_or_none()
