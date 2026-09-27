@@ -16,9 +16,9 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
-    REDIS_URL: str = "redis://:devpassword@localhost:6379/0"
-    CELERY_BROKER_URL: str = "redis://:devpassword@localhost:6379/1"
-    CELERY_RESULT_BACKEND: str = "redis://:devpassword@localhost:6379/2"
+    REDIS_URL: str = f"redis://:{os.getenv('REDIS_PASSWORD', '')}@localhost:6379/0"
+    CELERY_BROKER_URL: str = f"redis://:{os.getenv('REDIS_PASSWORD', '')}@localhost:6379/1"
+    CELERY_RESULT_BACKEND: str = f"redis://:{os.getenv('REDIS_PASSWORD', '')}@localhost:6379/2"
 
     OLLAMA_BASE_URL: str = "https://ollama.com"
     OLLAMA_MODEL: str = "gpt-oss:120b-cloud"
@@ -34,6 +34,12 @@ class Settings(BaseSettings):
 
     UPLOAD_DIR: str = "uploads"
     CORS_ORIGINS: str = "http://localhost:5173"
+
+    # OCR engine: "auto" probes PaddleOCR in a subprocess and falls back to
+    # EasyOCR if it is unusable, "paddle" forces PaddleOCR, "easyocr" forces
+    # EasyOCR. PaddlePaddle's native inference segfaults on some arm64 CPUs,
+    # which cannot be caught in-process, hence the subprocess probe.
+    OCR_ENGINE: str = "auto"
 
     LOG_LEVEL: str = "INFO"
 

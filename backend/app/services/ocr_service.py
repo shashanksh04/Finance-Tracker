@@ -1,8 +1,41 @@
-import os, re, asyncio, threading, time, json, traceback
+import os, re, asyncio, threading, time, json, subprocess, sys, tempfile, traceback
 from typing import Optional
 from datetime import datetime
 from PIL import Image
 from app.core.config import settings
+
+
+# PaddleOCR 3.x constructor arguments. The 2.x arguments (use_gpu, show_log,
+# use_angle_cls) were removed in 3.x and raise ValueError at init.
+def _paddle_ocr():
+    from paddleocr import PaddleOCR
+    return PaddleOCR(
+        lang="en",
+        use_doc_orientation_classify=False,
+        use_doc_unwarping=False,
+        use_textline_orientation=True,
+        text_det_thresh=0.3,
+        text_det_box_thresh=0.5,
+    )
+
+
+# Runs in a throwaway interpreter. PaddlePaddle's native inference segfaults on
+# certain arm64 CPUs (e.g. Cortex-A76); a SIGSEGV cannot be caught with
+# try/except, so the only safe way to find out is to isolate the attempt.
+_PADDLE_PROBE = """
+import sys
+try:
+    from paddleocr import PaddleOCR
+    from PIL import Image, ImageDraw
+    o = PaddleOCR(lang="en", use_doc_orientation_classify=False,
+                  use_doc_unwarping=False, use_textline_orientation=True)
+    p = sys.argv[1]
+    Image.new("RGB", (240, 90), "white").save(p)
+    o.predict(p)
+except Exception:
+    sys.exit(1)
+sys.exit(0)
+"""
 
 
 class OCRService:
@@ -10,28 +43,62 @@ class OCRService:
     _ocr_easy = None
     _lock = threading.Lock()
     _warm = False
+    _paddle_ok = None  # None = unprobed, True/False = probe result
 
     @classmethod
     def warmup(cls):
         if not cls._warm:
-            cls._get_ocr()
+            cls._resolve_engine()
             cls._warm = True
 
     @classmethod
+    def _probe_paddle(cls) -> bool:
+        """Decide whether PaddleOCR can safely run in this process."""
+        engine = (settings.OCR_ENGINE or "auto").lower()
+        if engine == "easyocr":
+            return False
+        if cls._paddle_ok is None:
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+                probe_img = tmp.name
+            try:
+                proc = subprocess.run(
+                    [sys.executable, "-c", _PADDLE_PROBE, probe_img],
+                    capture_output=True, timeout=600,
+                )
+                cls._paddle_ok = proc.returncode == 0
+            except Exception:
+                cls._paddle_ok = False
+            finally:
+                try:
+                    os.remove(probe_img)
+                except OSError:
+                    pass
+            if not cls._paddle_ok:
+                print(
+                    "[ocr] PaddleOCR unusable in this environment; using EasyOCR instead.",
+                    file=sys.stderr, flush=True,
+                )
+        return cls._paddle_ok
+
+    @classmethod
+    def _resolve_engine(cls) -> str:
+        if (settings.OCR_ENGINE or "auto").lower() == "paddle":
+            return "paddle"
+        return "paddle" if cls._probe_paddle() else "easyocr"
+
+    @classmethod
+    def engine_name(cls) -> str:
+        return cls._resolve_engine()
+
+    @classmethod
     def _get_ocr(cls):
+        if cls._resolve_engine() != "paddle":
+            return None
         if cls._ocr is None:
             with cls._lock:
                 if cls._ocr is None:
                     try:
-                        from paddleocr import PaddleOCR
-                        cls._ocr = PaddleOCR(
-                            use_angle_cls=True,
-                            lang="en",
-                            use_gpu=False,
-                            show_log=False,
-                            det_db_thresh=0.3,
-                            det_db_box_thresh=0.5,
-                        )
+                        cls._ocr = _paddle_ocr()
                     except Exception:
                         traceback.print_exc()
                         cls._ocr = None
@@ -44,7 +111,7 @@ class OCRService:
                 if cls._ocr_easy is None:
                     try:
                         import easyocr
-                        cls._ocr_easy = easyocr.Reader(["en"], gpu=False)
+                        cls._ocr_easy = easyocr.Reader(["en"], gpu=False, verbose=False)
                     except Exception:
                         traceback.print_exc()
                         cls._ocr_easy = None
@@ -129,28 +196,51 @@ class OCRService:
             doc.close()
 
     @classmethod
+    def _run_paddle(cls, img_path: str) -> str:
+        """Run PaddleOCR 3.x and flatten its results to text.
+
+        3.x returns a list of result objects exposing ``rec_texts`` (a list of
+        recognised strings) rather than 2.x's nested ``[[box, (text, score)]]``.
+        """
+        ocr = cls._get_ocr()
+        if ocr is None:
+            return ""
+        chunks = []
+        for res in ocr.predict(img_path) or []:
+            data = res.json["res"] if hasattr(res, "json") and isinstance(getattr(res, "json"), dict) and "res" in res.json else None
+            texts = None
+            if data is not None:
+                texts = data.get("rec_texts")
+            if texts is None:
+                texts = getattr(res, "rec_texts", None)
+            if texts is None and isinstance(res, dict):
+                inner = res.get("res", res)
+                texts = inner.get("rec_texts") if isinstance(inner, dict) else None
+            for t in (texts or []):
+                if t and t.strip():
+                    chunks.append(t.strip())
+        return "\n".join(chunks).strip()
+
+    @classmethod
+    def _run_easy(cls, img_path: str) -> str:
+        easy = cls._get_ocr_easy()
+        if easy is None:
+            return ""
+        chunks = [t.strip() for _, t, *_ in easy.readtext(img_path) if t and t.strip()]
+        return "\n".join(chunks).strip()
+
+    @classmethod
     def _extract_image(cls, file_path: str) -> str:
         pre_path = cls._preprocess_image(file_path)
         try:
-            ocr = cls._get_ocr()
-            if ocr:
+            order = ["paddle", "easyocr"] if cls._resolve_engine() == "paddle" else ["easyocr", "paddle"]
+            for engine in order:
                 try:
-                    result = ocr.ocr(pre_path, cls=False)
-                    text = " ".join(item[1][0] for line in result for item in line)
+                    text = cls._run_paddle(pre_path) if engine == "paddle" else cls._run_easy(pre_path)
                     if text.strip():
-                        return text.strip()
+                        return text
                 except Exception:
                     traceback.print_exc()
-        except Exception:
-            traceback.print_exc()
-        try:
-            easy = cls._get_ocr_easy()
-            if easy:
-                result = easy.readtext(pre_path)
-                text = " ".join(item[1] for item in result)
-                return text.strip()
-        except Exception:
-            traceback.print_exc()
         finally:
             if pre_path != file_path:
                 try:
