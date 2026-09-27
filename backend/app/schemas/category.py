@@ -1,9 +1,9 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
 
 class CategoryCreate(BaseModel):
-    name: str = Field(..., min_length=1, max_length=80, pattern=r"^(?!\s*$).+")
+    name: str = Field(..., min_length=1, max_length=80, pattern=r"\S")
     icon: Optional[str] = Field(default=None, max_length=16)
     color: Optional[str] = Field(default=None, max_length=16)
     type: str = Field(..., pattern="^(income|expense)$")

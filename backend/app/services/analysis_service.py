@@ -1,5 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, Integer
 from app.models.transaction import Transaction
 from app.models.category import Category
 from datetime import date, timedelta
@@ -351,7 +351,7 @@ class AnalysisService:
 
         result = await self.db.execute(
             select(
-                func.cast(func.extract('day', Transaction.date), func.Integer).label('day'),
+                func.cast(func.extract('day', Transaction.date), Integer).label('day'),
                 Transaction.type,
                 func.coalesce(func.sum(Transaction.amount), 0).label('total'),
                 func.count(Transaction.id).label('cnt'),
@@ -359,7 +359,7 @@ class AnalysisService:
                 Transaction.user_id == user_id,
                 Transaction.date >= start, Transaction.date < end,
                 Transaction.deleted_at.is_(None),
-            ).group_by(func.cast(func.extract('day', Transaction.date), func.Integer), Transaction.type)
+            ).group_by(func.cast(func.extract('day', Transaction.date), Integer), Transaction.type)
         )
         days = {}
         for r in result.all():

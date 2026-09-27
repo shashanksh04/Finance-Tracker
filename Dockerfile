@@ -28,6 +28,10 @@ RUN mkdir -p /var/lib/nginx/body /var/lib/nginx/proxy /var/lib/nginx/fastcgi /va
     sed -i 's|access_log /var/log/nginx/access.log|access_log /var/www/finance-tracker/nginx-access.log|' /etc/nginx/nginx.conf
 
 WORKDIR /app/backend
+# adduser --system leaves HOME=/nonexistent, which is not writable. PaddleOCR 3.x
+# (paddlex) creates $HOME/.paddlex on first use and fails without a writable home.
+# /app is already chowned to app above.
+ENV HOME=/app
 USER app
 EXPOSE 80
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 --start-period=40s CMD curl -f http://127.0.0.1:80/health || curl -f http://127.0.0.1:80/api/health || exit 1

@@ -40,3 +40,7 @@ celery_app.conf.update(
         },
     },
 )
+
+# Import task modules so the worker registers them. Must come after celery_app
+# is defined, since these modules do `from app.tasks import celery_app`.
+from app.tasks import scheduled_tasks  # noqa: E402,F401

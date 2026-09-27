@@ -1,21 +1,33 @@
 import asyncio
 from app.tasks import celery_app
-from app.core.database import async_session_factory
+from app.core.database import async_session_factory, engine
 from app.services.recurring_service import RecurringService
 from app.services.alert_service import AlertService
 
 
+async def _dispose_and_return(coro):
+    """Run a coroutine, then drop pooled connections.
+
+    Each _run_async call spins up a fresh event loop and closes it again, so any
+    connection left in the async engine's pool is bound to a dead loop and makes
+    the *next* task fail with "Event loop is closed". Disposing after every task
+    keeps the pool from outliving its loop.
+    """
+    try:
+        return await coro
+    finally:
+        await engine.dispose()
+
+
 def _run_async(coro):
     try:
-        loop = asyncio.get_running_loop()
-        if loop.is_running():
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                future = pool.submit(asyncio.run, coro)
-                return future.result(timeout=300)
+        asyncio.get_running_loop()
     except RuntimeError:
-        pass
-    return asyncio.run(coro)
+        return asyncio.run(_dispose_and_return(coro))
+    import concurrent.futures
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(asyncio.run, _dispose_and_return(coro))
+        return future.result(timeout=300)
 
 
 @celery_app.task
