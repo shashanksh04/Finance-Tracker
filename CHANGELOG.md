@@ -18,8 +18,12 @@ were never given release notes at the time; they are recorded here for the first
   the lowest projected point with an overdraw warning.
   - Declared with a full `CashflowProjectionResponse` schema rather than left untyped, so the
     contract is discoverable from OpenAPI.
-  - `AnalysisService._build_buckets()` and `_balance_as_of()` are pure static methods, covered by
-    19 new tests.
+  - `AnalysisService._build_buckets()` and `_balance_as_of()` are pure static methods, so they are
+    unit-testable without a database.
+  - A response-contract test pins the service's output to `CashflowProjectionResponse`. This
+    exists because a required schema field the service never returns 500s every single request
+    while every other test still passes — a failure mode that was caught by the release smoke test
+    rather than beforehand.
 - **`AnalysisService._balance_as_of()`** — extracted from `get_net_worth_trend` so the projection
   and the net-worth trend share one implementation of the future-transaction reversal.
 - **`RecurringService.calculate_next_date()`** — promoted from private to public so the projection
@@ -31,8 +35,8 @@ were never given release notes at the time; they are recorded here for the first
   `ix_transactions_user_deleted_date`, `ix_transactions_user_type`,
   `ix_transactions_merchant_trgm`. Idempotent (`if_not_exists=True`) and reversible.
 - **A runnable test suite** — `pytest.ini`, `requirements-dev.txt` (kept separate from
-  `requirements.txt` so the production image does not ship pytest), and 19 projection tests. The
-  suite is now **44 passing**.
+  `requirements.txt` so the production image does not ship pytest), and 22 projection tests. The
+  suite is now **47 passing**.
 - **Documentation** — `docs/API.md` (generated from the live OpenAPI schema),
   `docs/ARCHITECTURE.md`, `docs/OPERATIONS.md`, `docs/LIMITATIONS.md`, this changelog, and a
   rewritten `README.md` and `PROJECT_MAP.md`.

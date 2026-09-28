@@ -246,18 +246,18 @@ Health: `GET /api/health` + `GET /health 200` + docker healthchecks.
 |------|------|
 | `frontend/src/pages/CashflowPage.tsx` | Cashflow projection page. Composed Recharts bar (inflow/outflow) + area (closing balance), `ReferenceLine y=0`, overdraw banner, 14/30/60/90/180/365d range, per-account filter |
 | `backend/app/services/analysis_service.py` | `get_cashflow_projection()` + pure `_build_buckets()` (daily ≤31d, weekly above) + shared `_balance_as_of()` extracted from `get_net_worth_trend` |
-| `backend/app/schemas/analysis.py` | `CashflowProjectionResponse`, `CashflowBucket`, `CashflowLowestPoint` — 17 fields, fully declared (unlike the 25 untyped operations) |
+| `backend/app/schemas/analysis.py` | `CashflowProjectionResponse`, `CashflowBucket`, `CashflowLowestPoint` — 14 fields, fully declared (unlike the 25 untyped operations). A contract test pins the service output to the schema, because a required field the service omits 500s at runtime while every other test still passes |
 | `backend/app/api/routes/analysis.py` | `GET /api/analysis/cashflow` (`days` 7–365 default 90, `account_id` optional) |
 | `backend/app/services/recurring_service.py` | `calculate_next_date()` promoted from private `_calculate_next_date` so the projection and the hourly Celery job share one date-roll implementation |
 | `backend/alembic/versions/f1a2b3c4d5e6_add_missing_model_indexes.py` | Creates the 5 indexes declared on models but absent from every migration; `if_not_exists=True`, reversible |
 | `backend/pytest.ini` | `pythonpath=.`, `testpaths=tests`, `asyncio_mode=strict` |
 | `backend/requirements-dev.txt` | `pytest` + `pytest-asyncio`, kept out of `requirements.txt` so the production image does not ship them |
-| `backend/tests/test_cashflow_projection.py` | 19 tests: future-transaction reversal, recurring date expansion incl. month-end/leap-year clamping, daily↔weekly boundary, running balance, lowest-point tracking |
+| `backend/tests/test_cashflow_projection.py` | 22 tests: future-transaction reversal, recurring date expansion incl. month-end/leap-year clamping, daily↔weekly boundary, running balance, lowest-point tracking, plus a response-contract test that pins service output to the schema |
 | `docs/API.md` `docs/ARCHITECTURE.md` `docs/OPERATIONS.md` `docs/LIMITATIONS.md` | Generated from the live OpenAPI schema and source, not maintained by hand |
 
 Also changed in v1.1: `frontend/src/services/api.ts` (`analysisApi.getCashflow`), `frontend/src/types/index.ts`, `frontend/src/App.tsx` (route), `frontend/src/components/layout/Sidebar.tsx` (nav), `backend/app/copilot/intent_router.py` (`create_goal` no longer matches the bare noun "saving goal"), `backend/app/services/budget_service.py` (`timedelta` import), `frontend/src/pages/BillsPage.tsx` (`toList`).
 
-Counts after v1.1: **19 routers, 78 REST operations, 51 paths, 1 WebSocket, 12 models, 17 schemas, 17 services, 18 pages, 9 migrations, 44 tests.**
+Counts after v1.1: **19 routers, 78 REST operations, 51 paths, 1 WebSocket, 12 models, 17 schemas, 17 services, 18 pages, 9 migrations, 47 tests.**
 
 ---
 

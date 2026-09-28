@@ -199,7 +199,7 @@ backend/
 │   ├── embeddings/     Embedding service
 │   └── ws/             WebSocket manager
 ├── alembic/versions/   9 migrations, single linear head
-├── tests/              44 tests
+├── tests/              47 tests
 ├── alembic.ini
 └── pytest.ini
 
@@ -242,8 +242,9 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-44 tests: 19 covering the cashflow projection maths (future-transaction reversal, recurring date
-expansion, daily/weekly bucketing boundaries) and 25 pre-existing copilot/embedding/OCR tests.
+47 tests: 22 covering the cashflow projection (future-transaction reversal, recurring date
+expansion, daily/weekly bucketing boundaries, and a contract test that pins the service's output
+to its response schema) and 25 pre-existing copilot/embedding/OCR tests.
 `backend/pytest.ini` sets `pythonpath = .` so `app.*` resolves.
 
 Two things to know:

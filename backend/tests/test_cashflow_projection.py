@@ -105,6 +105,83 @@ class TestRecurringDateExpansion:
         assert svc.calculate_next_date(date(2026, 2, 28), "monthly", 1) == date(2026, 3, 28)
 
 
+class TestResponseContract:
+    """Pin the service output to the response schema.
+
+    Regression guard: a required field on CashflowProjectionResponse that
+    get_cashflow_projection never populates makes every /api/analysis/cashflow
+    request fail with ResponseValidationError (HTTP 500) at runtime, while
+    every other test still passes. Validating a complete sample of the real
+    service output catches that here instead.
+    """
+
+    def _service_output(self):
+        buckets, running, lowest = AnalysisService._build_buckets(
+            {date(2026, 6, 3): 500.0, date(2026, 6, 5): -200.0},
+            1000.0,
+            date(2026, 6, 1),
+            14,
+            date(2026, 6, 15),
+        )
+        return {
+            "generated_at": "2026-06-01T00:00:00+00:00",
+            "start_date": "2026-06-01",
+            "end_date": "2026-06-15",
+            "days": 14,
+            "granularity": "daily",
+            "currency": "USD",
+            "opening_balance": 1000.0,
+            "liabilities": 250.0,
+            "projected_closing_balance": running,
+            "total_inflow": 500.0,
+            "total_outflow": 200.0,
+            "lowest_point": lowest,
+            "is_overdrawn": False,
+            "buckets": buckets,
+        }
+
+    def test_service_output_validates_against_the_schema(self):
+        from app.schemas.analysis import CashflowProjectionResponse
+
+        model = CashflowProjectionResponse(**self._service_output())
+        assert model.days == 14
+        assert model.buckets[2].closing_balance == 1500.0
+
+    def test_schema_has_no_field_the_service_omits(self):
+        from app.schemas.analysis import CashflowProjectionResponse
+
+        produced = set(self._service_output())
+        required = {
+            name
+            for name, field in CashflowProjectionResponse.model_fields.items()
+            if field.is_required()
+        }
+        missing = required - produced
+        assert not missing, f"schema requires fields the service never returns: {sorted(missing)}"
+
+    def test_schema_declares_exactly_the_documented_fields(self):
+        from app.schemas.analysis import CashflowProjectionResponse
+
+        assert set(CashflowProjectionResponse.model_fields) == produced_fields()
+
+
+def produced_fields():
+    return {
+        "generated_at",
+        "start_date",
+        "end_date",
+        "days",
+        "granularity",
+        "currency",
+        "opening_balance",
+        "liabilities",
+        "projected_closing_balance",
+        "total_inflow",
+        "total_outflow",
+        "lowest_point",
+        "is_overdrawn",
+        "buckets",
+    }
 class TestBucketing:
     def test_daily_up_to_31_days(self):
         today = date(2026, 6, 1)

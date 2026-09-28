@@ -168,7 +168,10 @@ reported separately as liabilities and are **not** netted against available cash
 
 **Bucketing.** `days <= 31` produces daily buckets; longer windows produce weekly buckets, so a
 365-day request returns ~53 points. The bucket builder is a pure static method
-(`_build_buckets`) so the boundary logic is unit-testable without a database.
+(`_build_buckets`) so the boundary logic is unit-testable without a database. A separate contract
+test validates a complete sample of the service's real output against
+`CashflowProjectionResponse`, which catches a required schema field the service forgets to
+populate — that failure mode returns HTTP 500 in production while every other test still passes.
 
 **Lowest point** tracks the trough of the running balance and its day offset, which drives the
 overdraw warning in the UI.

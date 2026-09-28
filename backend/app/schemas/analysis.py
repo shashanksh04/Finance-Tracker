@@ -91,6 +91,3 @@ class CashflowProjectionResponse(BaseModel):
     lowest_point: CashflowLowestPoint
     is_overdrawn: bool
     buckets: List[CashflowBucket]
-    alerts: List[Any]
-    goal_progress: List[Any]
-    spending_by_category: List[CategoryBreakdown]
