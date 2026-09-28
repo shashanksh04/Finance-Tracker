@@ -61,6 +61,14 @@ class DashboardSummary(BaseModel):
     budget_health: List[dict]
     recent_transactions: List[Any]
     upcoming_bills: List[Any]
+    # get_dashboard() returns these three (analysis_service.py). They were
+    # absent here, so FastAPI's response_model silently stripped them from
+    # every dashboard response and DashboardPage crashed on
+    # `data.spending_by_category.map(...)`. Declaring them restores the
+    # payload the frontend already depends on.
+    alerts: List[Any]
+    goal_progress: List[Any]
+    spending_by_category: List[CategoryBreakdown]
 
 class CashflowLowestPoint(BaseModel):
     balance: float
