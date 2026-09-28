@@ -34,5 +34,5 @@ WORKDIR /app/backend
 ENV HOME=/app
 USER app
 EXPOSE 80
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 --start-period=40s CMD curl -f http://127.0.0.1:80/health || curl -f http://127.0.0.1:80/api/health || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 --start-period=60s CMD curl -fsS http://127.0.0.1:80/api/health >/dev/null || exit 1
 ENTRYPOINT ["/entrypoint.sh"]

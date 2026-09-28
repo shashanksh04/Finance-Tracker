@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus, PiggyBank, Trash2, Edit3, AlertTriangle } from 'lucide-react';
-import { budgetsApi, categoriesApi } from '../services/api';
+import { budgetsApi, categoriesApi, toList } from '../services/api';
 import { Budget, Category } from '../types';
 import { budgetSchema, BudgetForm } from '../utils/validation';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -30,9 +30,9 @@ export function BudgetsPage() {
     try {
       const { data: bData } = await budgetsApi.getAll(false, page, 12);
       const { data: cData } = await categoriesApi.getAll('expense');
-      if (bData.items) { setBudgets(bData.items); setTotalPages(bData.total_pages); }
-      else { setBudgets(bData); setTotalPages(1); }
-      setCategories(cData);
+      setBudgets(toList(bData));
+      setTotalPages(bData?.total_pages ?? 1);
+      setCategories(toList(cData));
     } catch (err: any) { toast.error(err?.response?.data?.detail || 'Failed to load budgets'); } finally { setLoading(false); }
   }, [page]);
 

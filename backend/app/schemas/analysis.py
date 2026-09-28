@@ -18,7 +18,10 @@ class SpendingTrend(BaseModel):
     transaction_count: int
 
 class CategoryBreakdown(BaseModel):
-    category_id: str
+    # Transactions may be uncategorized (category_id IS NULL), which the
+    # transaction create API allows. Declaring this as a required str made
+    # the dashboard and period-analysis endpoints fail with a 500.
+    category_id: Optional[str] = None
     category_name: str
     category_icon: Optional[str] = None
     category_color: Optional[str] = None

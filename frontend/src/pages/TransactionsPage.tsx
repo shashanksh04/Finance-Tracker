@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus, Search, ArrowUpDown, Trash2, Edit3, Upload, Receipt, Download } from 'lucide-react';
-import { transactionsApi, accountsApi, categoriesApi, ocrApi } from '../services/api';
+import { transactionsApi, accountsApi, categoriesApi, ocrApi, toList } from '../services/api';
 import { ImportModal } from '../components/import/ImportModal';
 import { Transaction, PaginatedTransactions, Account, Category } from '../types';
 import { transactionSchema, TransactionForm } from '../utils/validation';
@@ -49,8 +49,8 @@ export function TransactionsPage() {
 
   useEffect(() => {
     const abort = new AbortController();
-    accountsApi.getAll().then(({ data }) => { if (!abort.signal.aborted) setAccounts((data as any).items ?? data); }).catch(() => {});
-    categoriesApi.getAll().then(({ data }) => { if (!abort.signal.aborted) setCategories((data as any).items ?? data); }).catch(() => {});
+    accountsApi.getAll().then(({ data }) => { if (!abort.signal.aborted) setAccounts(toList(data)); }).catch(() => {});
+    categoriesApi.getAll().then(({ data }) => { if (!abort.signal.aborted) setCategories(toList(data)); }).catch(() => {});
     return () => abort.abort();
   }, []);
 

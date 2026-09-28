@@ -11,7 +11,8 @@ class ConnectionManager:
         self._lock = asyncio.Lock()
 
     async def connect(self, user_id: str, ws: WebSocket):
-        await ws.accept()
+        # The route owns the handshake and has already called accept(); calling
+        # it twice raises in Starlette and drops the connection with 1011.
         async with self._lock:
             if user_id not in self._connections:
                 self._connections[user_id] = []

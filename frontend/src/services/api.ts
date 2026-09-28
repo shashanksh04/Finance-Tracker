@@ -109,9 +109,29 @@ export const accountsApi = {
   delete: (id: string) => api.delete(`/accounts/${id}`),
 };
 
+/**
+ * Normalize a list endpoint response to an array.
+ *
+ * Endpoints return either a bare array or a paginated envelope
+ * ({ items, total, page, page_size, total_pages }). On failure axios
+ * surfaces the error body, which is an object and not iterable — calling
+ * .map() on it previously crashed pages with "o.map is not a function".
+ */
+export function toList<T = any>(data: any): T[] {
+  if (Array.isArray(data)) return data as T[];
+  if (data && Array.isArray(data.items)) return data.items as T[];
+  return [];
+}
+
 export const categoriesApi = {
-  getAll: (type?: string, page = 0, pageSize = 0) =>
-    api.get(`/categories/?type=${type || ''}&page=${page}&page_size=${pageSize}`),
+  getAll: (type?: string, page = 0, pageSize = 0) => {
+    // Only send `type` when set: an empty `?type=` is rejected by the API.
+    const params = new URLSearchParams();
+    if (type) params.set('type', type);
+    params.set('page', String(page));
+    params.set('page_size', String(pageSize));
+    return api.get(`/categories/?${params.toString()}`);
+  },
   create: (data: any) => api.post('/categories/', data),
   update: (id: string, data: any) => api.put(`/categories/${id}`, data),
   delete: (id: string) => api.delete(`/categories/${id}`),

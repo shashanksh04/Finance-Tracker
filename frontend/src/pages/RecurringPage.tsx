@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus, Repeat, Trash2, Edit3, Play, Pause } from 'lucide-react';
-import { recurringApi, accountsApi, categoriesApi } from '../services/api';
+import { recurringApi, accountsApi, categoriesApi, toList } from '../services/api';
 import { RecurringTransaction, Account, Category } from '../types';
 import { recurringSchema, RecurringForm } from '../utils/validation';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -33,7 +33,7 @@ export function RecurringPage() {
       const { data: rData } = await recurringApi.getAll();
       const { data: aData } = await accountsApi.getAll();
       const { data: cData } = await categoriesApi.getAll();
-      setItems(rData); setAccounts(aData); setCategories(cData);
+      setItems(toList(rData)); setAccounts(toList(aData)); setCategories(toList(cData));
     } finally { setLoading(false); }
   }, []);
 

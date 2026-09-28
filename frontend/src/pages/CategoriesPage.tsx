@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus, Tags, Trash2, Edit3, Palette } from 'lucide-react';
-import { categoriesApi } from '../services/api';
+import { categoriesApi, toList } from '../services/api';
 import { Category } from '../types';
 import { categorySchema, CategoryForm } from '../utils/validation';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -32,8 +32,8 @@ export function CategoriesPage() {
     setLoading(true);
     try {
       const { data } = await categoriesApi.getAll(undefined, page, 20);
-      if (data.items) { setCategories(data.items); setTotalPages(data.total_pages); }
-      else { setCategories(data); setTotalPages(1); }
+      setCategories(toList(data));
+      setTotalPages(data?.total_pages ?? 1);
     } catch (err: any) { toast.error(err?.response?.data?.detail || 'Failed to load categories'); } finally { setLoading(false); }
   }, [page]);
 

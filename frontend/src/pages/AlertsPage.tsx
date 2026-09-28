@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Bell, CheckCheck, X, AlertTriangle, Info, AlertCircle, RefreshCw, Settings } from 'lucide-react';
-import { alertsApi } from '../services/api';
+import { alertsApi, toList } from '../services/api';
 import { Alert, AlertPreference } from '../types';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Modal } from '../components/ui/Modal';
@@ -23,7 +23,7 @@ export function AlertsPage() {
     try {
       const { data: aData } = await alertsApi.getAll();
       const { data: pData } = await alertsApi.getPreferences();
-      setAlerts(aData); setPreferences(pData);
+      setAlerts(toList(aData)); setPreferences(pData);
     } finally { setLoading(false); }
   }, []);
 

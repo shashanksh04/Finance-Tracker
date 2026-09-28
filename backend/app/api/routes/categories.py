@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.api.deps import get_current_user
@@ -7,14 +7,20 @@ from app.models.category import Category
 from app.schemas.category import CategoryCreate, CategoryUpdate, CategoryResponse
 from app.services.category_service import CategoryService
 from app.services.auth_service import DEFAULT_EXPENSE_CATEGORIES, DEFAULT_INCOME_CATEGORIES
-from typing import List
+from typing import List, Optional
 from sqlalchemy import select
 
 router = APIRouter(prefix="/api/categories", tags=["Categories"])
 
 
 @router.get("/")
-async def list_categories(type: str = Query(None, pattern="^(income|expense)$"), page: int = Query(0, ge=0), page_size: int = Query(0, ge=0, le=100), user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def list_categories(type: Optional[str] = Query(None), page: int = Query(0, ge=0), page_size: int = Query(0, ge=0, le=100), user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    # An empty value means "no filter". The parameter used to carry a regex
+    # pattern that rejected "", so any client sending `?type=` got a 422.
+    if type is not None:
+        type = type.strip().lower() or None
+    if type is not None and type not in ("income", "expense"):
+        raise HTTPException(status_code=422, detail="type must be 'income' or 'expense'")
     service = CategoryService(db)
     return await service.get_all(user.id, type, page, page_size)
 

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus, Target, Trash2, Edit3, Trophy, Clock, Calendar } from 'lucide-react';
-import { goalsApi } from '../services/api';
+import { goalsApi, toList } from '../services/api';
 import { Goal } from '../types';
 import { goalSchema, GoalForm } from '../utils/validation';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -28,8 +28,8 @@ export function GoalsPage() {
     setLoading(true);
     try {
       const { data } = await goalsApi.getAll(undefined, page, 12);
-      if (data.items) { setGoals(data.items); setTotalPages(data.total_pages); }
-      else { setGoals(data); setTotalPages(1); }
+      setGoals(toList(data));
+      setTotalPages(data?.total_pages ?? 1);
     } catch (err: any) { toast.error(err?.response?.data?.detail || 'Failed to load goals'); } finally { setLoading(false); }
   }, [page]);
 

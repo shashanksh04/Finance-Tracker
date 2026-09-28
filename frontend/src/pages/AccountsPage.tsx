@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Plus, Wallet, CreditCard, PiggyBank, TrendingUp, Building2, Trash2, Edit3, MoreHorizontal } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { accountsApi } from '../services/api';
+import { accountsApi, toList } from '../services/api';
 import { Account } from '../types';
 import { accountSchema, AccountForm } from '../utils/validation';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -30,8 +30,8 @@ export function AccountsPage() {
     setLoading(true);
     try {
       const { data } = await accountsApi.getAll(false, page, 12);
-      if (data.items) { setAccounts(data.items); setTotalPages(data.total_pages); }
-      else { setAccounts(data); setTotalPages(1); }
+      setAccounts(toList(data));
+      setTotalPages(data?.total_pages ?? 1);
     } catch (err: any) { toast.error(err?.response?.data?.detail || 'Failed to load accounts'); } finally { setLoading(false); }
   }, [page]);
 

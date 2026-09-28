@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Wallet, TrendingUp, TrendingDown, PiggyBank, Target, ArrowUpRight, DollarSign, Bell, Plus } from 'lucide-react';
-import { analysisApi, transactionsApi, accountsApi, categoriesApi } from '../services/api';
+import { analysisApi, transactionsApi, accountsApi, categoriesApi, toList } from '../services/api';
 import { DashboardSummary, Account, Category } from '../types';
 import { transactionSchema, TransactionForm } from '../utils/validation';
 import { StatCard } from '../components/ui/StatCard';
@@ -37,8 +37,8 @@ export function DashboardPage() {
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
-    accountsApi.getAll().then(({ data }) => setAccounts(data)).catch(() => {});
-    categoriesApi.getAll().then(({ data }) => setCategories(data)).catch(() => {});
+    accountsApi.getAll().then(({ data }) => setAccounts(toList(data))).catch(() => {});
+    categoriesApi.getAll().then(({ data }) => setCategories(toList(data))).catch(() => {});
   }, []);
 
   const onSubmit = async (data: TransactionForm) => {
@@ -52,8 +52,8 @@ export function DashboardPage() {
   };
 
   const loadAccountsAndCategories = useCallback(() => {
-    accountsApi.getAll().then(({ data }) => setAccounts(data)).catch(() => {});
-    categoriesApi.getAll().then(({ data }) => setCategories(data)).catch(() => {});
+    accountsApi.getAll().then(({ data }) => setAccounts(toList(data))).catch(() => {});
+    categoriesApi.getAll().then(({ data }) => setCategories(toList(data))).catch(() => {});
   }, []);
 
   useWebSocket({
