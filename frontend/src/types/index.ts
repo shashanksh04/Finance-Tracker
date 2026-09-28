@@ -291,3 +291,36 @@ export interface CalendarData {
   }[];
   bills: CalendarBill[];
 }
+
+export interface CashflowBucket {
+  label: string;
+  start_date: string;
+  end_date: string;
+  inflow: number;
+  outflow: number;
+  net: number;
+  closing_balance: number;
+}
+
+export interface CashflowLowestPoint {
+  balance: number;
+  label: string | null;
+  in_days: number;
+}
+
+export interface CashflowProjection {
+  generated_at: string;
+  start_date: string;
+  end_date: string;
+  days: number;
+  granularity: 'daily' | 'weekly';
+  currency: string;
+  opening_balance: number;
+  liabilities: number;
+  projected_closing_balance: number;
+  total_inflow: number;
+  total_outflow: number;
+  lowest_point: CashflowLowestPoint;
+  is_overdrawn: boolean;
+  buckets: CashflowBucket[];
+}

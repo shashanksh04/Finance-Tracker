@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus, FileText, Upload, Trash2, Edit3, CheckCircle, AlertTriangle, Receipt, ArrowRight } from 'lucide-react';
-import { billsApi, accountsApi, categoriesApi, transactionsApi } from '../services/api';
+import { billsApi, accountsApi, categoriesApi, transactionsApi, toList } from '../services/api';
 import { Bill, Account, Category } from '../types';
 import { billSchema, BillForm } from '../utils/validation';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -31,7 +31,7 @@ export function BillsPage() {
     setLoading(true);
     try {
       const [bRes, aRes, cRes] = await Promise.all([billsApi.getAll(), accountsApi.getAll(), categoriesApi.getAll()]);
-      setBills(bRes.data); setAccounts(aRes.data); setCategories(cRes.data);
+      setBills(toList(bRes.data)); setAccounts(toList(aRes.data)); setCategories(toList(cRes.data));
     } finally { setLoading(false); }
   }, []);
 

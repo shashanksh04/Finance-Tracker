@@ -5,7 +5,7 @@ import os
 
 class Settings(BaseSettings):
     APP_NAME: str = "Finance Tracker API"
-    VERSION: str = "1.0.0"
+    VERSION: str = "1.1.0"
     DEBUG: bool = False
 
     DATABASE_URL: str = "postgresql+asyncpg://finance_user:finance_pass@localhost:5432/finance_db"

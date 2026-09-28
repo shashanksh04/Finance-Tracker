@@ -61,6 +61,36 @@ class DashboardSummary(BaseModel):
     budget_health: List[dict]
     recent_transactions: List[Any]
     upcoming_bills: List[Any]
+
+class CashflowLowestPoint(BaseModel):
+    balance: float
+    label: Optional[str] = None
+    in_days: int = 0
+
+class CashflowBucket(BaseModel):
+    label: str
+    start_date: str
+    end_date: str
+    inflow: float
+    outflow: float
+    net: float
+    closing_balance: float
+
+class CashflowProjectionResponse(BaseModel):
+    generated_at: str
+    start_date: str
+    end_date: str
+    days: int
+    granularity: str
+    currency: str
+    opening_balance: float
+    liabilities: float
+    projected_closing_balance: float
+    total_inflow: float
+    total_outflow: float
+    lowest_point: CashflowLowestPoint
+    is_overdrawn: bool
+    buckets: List[CashflowBucket]
     alerts: List[Any]
     goal_progress: List[Any]
     spending_by_category: List[CategoryBreakdown]

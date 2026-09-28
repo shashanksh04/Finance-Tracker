@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.api.deps import get_current_user
 from app.models.user import User
-from app.schemas.analysis import PeriodAnalysisResponse, DashboardSummary
+from app.schemas.analysis import PeriodAnalysisResponse, DashboardSummary, CashflowProjectionResponse
 from app.services.analysis_service import AnalysisService
 from typing import Optional
 
@@ -54,3 +54,19 @@ async def get_calendar(
 ):
     service = AnalysisService(db)
     return await service.get_calendar(user.id, year, month)
+
+
+@router.get("/cashflow", response_model=CashflowProjectionResponse)
+async def get_cashflow(
+    days: int = Query(90, ge=7, le=365),
+    account_id: Optional[str] = Query(None),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    service = AnalysisService(db)
+    return await service.get_cashflow_projection(
+        user_id=user.id,
+        days=days,
+        account_id=account_id,
+        currency=(user.settings or {}).get("currency", "USD"),
+    )

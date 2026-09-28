@@ -1,33 +1,33 @@
 # Finance Tracker — Project Map
 
-> Web-first (mobile archived `32193ef` removed). Absolute paths. Re-generated 2026-09-08 after full re-scan.
+> Web-first (mobile archived `32193ef` removed). Absolute paths. Re-generated 2026-09-28 after full re-scan.
 
 ## 0. Workspace — 15 entries
 
 ```
-J:\0Main Projects\Finance Tracker\
+/home/alpha/projects/Finance Tracker/
 ├── backend\                 # FastAPI 3.12 + SQLAlchemy 2.0 + Alembic + Celery + Whisper
 │   ├── app\main.py (lifespan warmup OCR+Whisper)
 │   ├── app\api\routes\ (19 routers)
 │   ├── app\core\ (config, database pool, security JWT, redis Lock, currency, authenticated_static IDOR)
-│   ├── app\models\ (13 models uuid36 soft-delete)
-│   ├── app\schemas\ (18 pydantic v2)
-│   ├── app\services\ (18 incl. OCR/Whisper/Import/Sync/Analysis)
+│   ├── app\models\ (12 models uuid36 soft-delete)
+│   ├── app\schemas\ (17 pydantic v2)
+│   ├── app\services\ (17 incl. OCR/Whisper/Import/Sync/Analysis)
 │   ├── app\copilot\ (graph + 4 agents + 9 finance +8 action tools)
 │   ├── app\embeddings\ (mxbai 1024)
 │   ├── app\ws\ (manager + events)
 │   ├── app\tasks\ (beat 6)
-│   ├── alembic\versions\ (8 migrations)
+│   ├── alembic\versions\ (9 migrations)
 │   └── uploads\ (AuthenticatedStaticFiles)
 ├── frontend\                # Vite 6 + React 18 + TS 5.6 + Tailwind 3.4 + Zustand + Recharts
 │   ├── src\App.tsx (ProtectedRoute/AdminRoute *→/)
-│   ├── src\pages\ (17)
-│   ├── src\components\ (13: layout 3 + ui 5 + onboarding + import + Error + ActionConfirm)
+│   ├── src\pages\ (18)
+│   ├── src\components\ (13: layout 3 + ui 6 + onboarding + import + Error + ActionConfirm)
 │   ├── src\services\ (api single-flight + voice)
 │   ├── src\hooks\ (useWebSocket exponential, useApi dead)
 │   ├── src\store\ (auth persist, theme dark)
 │   ├── src\utils\ (format cachedCurrency, validation zod, tts voiceschanged)
-│   └── src\types\ (293 lines)
+│   └── src\types\ (326 lines)
 ├── Dockerfile               # node:20-alpine build → python:3.12-slim + nginx/supervisor/ffmpeg (no --platform)
 ├── docker-compose.yml       # pgvector:pg16 healthcheck + redis healthcheck + app 80:80 condition service_healthy
 ├── nginx.conf               # 50M SPA CSP + /api /ws /uploads /health (NOTE mic still blocks — see §8)
@@ -131,7 +131,7 @@ J:\0Main Projects\Finance Tracker\
 | `whisper_service.py` | `WhisperModel(base.en cpu auto)` singleton warmup `transcribe vad_filter` via executor temp file |
 | `import_service.py` | `allowed_delims ,; \t | :` 10MB `detect_mapping fuzzy >=0.4` `_parse_row dateutil amount ()/-` `_resolve` ilike `FOR UPDATE Decimal` |
 | `goal_spending_service.py` | surplus vs `suggested*2` → `FinancialMemory goal_conflict` |
-| `core/config.py` | `SECRET_KEY ""` `HS256 30m/7d` `REDIS :devpassword` `OLLAMA https://ollama.com gpt-oss:120b-cloud` `EMBED mxbai 1024 TTL24` `WHISPER base.en cpu auto` `UPLOAD uploads` `CORS 5173,8081` `LOG INFO` |
+| `core/config.py` | `SECRET_KEY ""` `HS256 30m/7d` `REDIS redis://:$REDIS_PASSWORD@localhost:6379/{0,1,2}` (password required) `OLLAMA https://ollama.com gpt-oss:120b-cloud` `EMBED mxbai 1024 TTL24` `WHISPER base.en cpu auto` `UPLOAD uploads` `CORS 5173,8081` `LOG INFO` |
 | `core/database.py` | `create_async_engine pool 10/20 pre_ping recycle3600 timeout30 statement30s idle60s rollback` `get_db BaseException GeneratorExit rollback` |
 | `core/security.py` | `token_blacklist jti hash/verify bcrypt jti sub exp type HS256 decode is_token_blacklisted/blacklist_token SETEX` |
 | `core/redis.py` | `aio from_url decode retry` `asyncio.Lock` `_init_exc` `get_redis ping` |
@@ -197,9 +197,9 @@ Alembic 8: `172d2ca5cae9_initial` → `1375a454 onboarding` → `1f42e1b7 server
 | `package.json` `vite.config.ts` `tailwind.config.js` `postcss.config.js` `index.html` `src/index.css` | `finance-tracker 1.0 type module dev vite build tsc -b` deps `react 18 zustand 5 axios hook-form zod recharts lucide date-fns clsx react-markdown` dev `vite6 @vitejs/react tailwind eslint` `vite 5173 proxy /api→8000 /ws ws /uploads` `darkMode class primary sky surface slate Inter JetBrains animations fade/slide/scale/pulse typography` |
 | `tsconfig.json` | `ES2020 bundler react-jsx strict @/* ./src/*` |
 | `src/main.tsx` | `BrowserRouter v7` `theme-storage dark` `Toaster top-right 4s` |
-| `src/App.tsx` | `ProtectedRoute` preserves `location.state.from` `AdminRoute is_admin else /` `tokenKey = access_token` avoid double `loadUser` routes 15 `*→/` |
+| `src/App.tsx` | `ProtectedRoute` preserves `location.state.from` `AdminRoute is_admin else /` `tokenKey = access_token` avoid double `loadUser` routes 18 `*→/` |
 | `src/store/authStore.ts` `themeStore.ts` | `persist auth-storage {user,tokens,isAuthenticated}` `login/register/logout/loadUser` `darkMode toggle documentElement` |
-| `src/types/index.ts` | `User AdminStats Account+Summary Category+WithChildren Transaction+Paginated Budget Recurring Goal Alert Preference Bill Memory DashboardSummary PeriodAnalysis NetWorth Calendar AuthTokens ProposedAction` 293 lines |
+| `src/types/index.ts` | `User AdminStats Account+Summary Category+WithChildren Transaction+Paginated Budget Recurring Goal Alert Preference Bill Memory DashboardSummary PeriodAnalysis NetWorth Calendar AuthTokens ProposedAction CashflowProjection CashflowBucket CashflowLowestPoint` 326 lines |
 | `src/services/api.ts` | `axios /api` `getStoredTokens try` `pendingRefresh` single-flight raw `axios.post /api/auth/refresh` `clearAuth` flag `Url includes refresh/login bypass` groups `authApi accountsApi categoriesApi categoryRulesApi transactionsApi (GET paginated 50 escape) budgetsApi recurringApi goalsApi alertsApi billsApi upload FormData memoriesApi ocrApi scan voiceApi transcribe analysisApi copilotApi chat chatStream(SSE fetch 401 refresh onDone buffer remainder token/status/actions) onboardingApi adminApi importApi` |
 | `src/services/voice.ts` | `getVoiceEngine browser>backend` `pickMimeType webm/ogg/mp4 transcribeAudio` `startBackendRecording getUserMedia MediaRecorder` `startBrowserRecognition en-US continuous false` `startVoice` |
 | `src/hooks/useWebSocket.ts` | `getWsUrl wss/ws` `useWebSocket handlers deps` `shouldReconnect attempt exponential min30s 1.6^ + jitter` `send {token}` `onmessage event/data` `onclose re-arm if shouldReconnect` |
@@ -215,8 +215,8 @@ Alembic 8: `172d2ca5cae9_initial` → `1375a454 onboarding` → `1f42e1b7 server
 |------|---------|
 | `Dockerfile` | `node:20-alpine npm ci build → /app/dist` + `python:3.12-slim + nginx supervisor ffmpeg libgomp1` `user app` `pip no-cache` `COPY backend /app/backend` `COPY dist /var/www/finance-tracker` `COPY nginx/supervisord/entrypoint mkdir /var/lib/nginx/body… chown sed pid/error/access → /var/www/nginx*.log WORKDIR /app/backend USER app EXPOSE 80 ENTRYPOINT /entrypoint.sh` **no `--platform`** |
 | `docker-compose.yml` | `db pgvector:pg16 healthcheck pg_isready interval10 timeout5 retries5` `redis 7-alpine --requirepass ${REDIS_PASSWORD} healthcheck` `app 80:80 uploads:/var/www/finance-tracker/uploads env DATABASE_URL asyncpg finance_user:${DB_PASSWORD}@db:5432/finance_db + SYNC psycopg2 + REDIS :${REDIS_PASSWORD}@redis + SECRET_KEY + CORS https://finance.shashankakumar.com,neha...,5173,8081 + OLLAMA https://ollama.com gpt-oss:120b-cloud + EMBED mxbai 1024 TTL24 depends_on condition service_healthy restart unless-stopped` `volumes pgdata uploads` |
-| `nginx.conf` | `listen 80 _ client_max_body 50M root /var/www/finance-tracker index index.html` headers `nosniff DENY X-XSS Referrer CSP default-src self script self style self unsafe-inline fonts.googleapis font.gstatic img self data connect self wss://ollama.com` **`Permissions-Policy camera=(), microphone=(), geolocation=()` — TODO allow `microphone=(self)` for voice** `Cache-Control no-cache` `location /api/ proxy 127.0.0.1:8000 Upgrade $connection_upgrade Host X-Real-IP X-Forwarded-Host 180s` `location /ws proxy 127.0.0.1:8000 86400s` `location /uploads/ proxy` `location / try_files` `location =/health 200 ok` |
-| `supervisord.conf` | `nodaemon user root` `program:nginx user root daemon off` `program:uvicorn bash -c uvicorn app.main:app 127.0.0.1:8000 --workers ${UVICORN_WORKERS:-2} user app` `program:celery-worker bash -c celery worker --concurrency ${CELERY_CONCURRENCY:-2} user app` `program:celery-beat user app` |
+| `nginx.conf` | `listen 80 _ client_max_body 50M root /var/www/finance-tracker index index.html` headers `nosniff DENY X-XSS Referrer CSP default-src self script self style self unsafe-inline fonts.googleapis font.gstatic img self data connect self wss://ollama.com` `Permissions-Policy camera=(), microphone=(self), geolocation=()` **(fixed in 3b858f1 — `microphone=(self)` is now allowed for voice capture)** `Cache-Control no-cache` `location /api/ proxy 127.0.0.1:8000 Upgrade $connection_upgrade Host X-Real-IP X-Forwarded-Host 180s` `location /ws proxy 127.0.0.1:8000 86400s` `location /uploads/ proxy` `location / try_files` `location =/health 200 ok` |
+| `supervisord.conf` | `nodaemon` `program:nginx user app daemon off` `program:uvicorn bash -c uvicorn app.main:app 127.0.0.1:8000 --workers ${UVICORN_WORKERS:-2} user app` `program:celery-worker bash -c celery worker --concurrency ${CELERY_CONCURRENCY:-2} user app` `program:celery-beat user app` |
 | `entrypoint.sh` | `cd /app/backend; alembic upgrade head; exec supervisord -c supervisord.conf` |
 | `deploy.sh` | `PI_USER/APP_DIR/PI_HOST` `apt nginx postgresql python3 nodejs npm redis` `postgres finance_user:finance_pass finance_db` `pip --break-system-packages` `frontend npm build cp /var/www` `write backend/.env <<ENVEOF DATABASE_URL asyncpg ${DB_PASSWORD_VAL}@localhost/finance_db + SYNC + SECRET_KEY token_hex + ALGORITHM + REDIS :devpassword + CORS 80/trycloudflare + OLLAMA cloud + UPLOAD` `PYTHONPATH alembic upgrade head` `systemd finance-api.service User=${PI_USER} WorkingDirectory=${APP_DIR}/backend ExecStart uvicorn 127.0.0.1:8000 workers2 Restart always` `nginx sites-available alias /uploads/ try_files nginx -t restart` `cloudflared arm64 tunnel login/create/route/run quick --url 80` |
 | `.env.example` `backend/.env.example` | `DB_PASSWORD SECRET_KEY OLLAMA_API_KEY REDIS_PASSWORD EMBEDDING mxbai 1024 TTL24 WHISPER base.en cpu auto UPLOAD uploads CORS 5173 LOG INFO` |
@@ -237,6 +237,27 @@ Health: `GET /api/health` + `GET /health 200` + docker healthchecks.
 
 ## 10. Fixes Applied (post-audit)
 - Merge `authenticated_static` resolved, `SECRET_KEY ""` + `.gitignore`, refresh rotation blacklist `is_active/deleted`, `FOR UPDATE SKIP LOCKED Decimal`, whitelist `SYNC_WRITABLE`, IDOR `normpath UUID deleted`, `_escape_like`, `deploy <<ENVEOF`, CORS filtered + `SlowAPIMiddleware`, soft-delete filters, `budget anchored`, `ws asyncio.Lock`, `nginx CSP Cache /health`, `supervisord root/app env workers`, `database timeouts`, `ocr locked load_page RGBA→RGB`, pinned `2.6.1/2.8.1/1.7.1`, `analysis gather cast Integer`, `import whitelist 10MB`, `action_tools exact most-used Redis 24h`, `Vector dim from settings`, `indexes ix_*`, frontend `single-flight refresh chatStream onDone TopBar items Settings useEffect format guard validation Modal Esc`.
+
+---
+
+## 11. V1.1 Additions
+
+| Path | What it is |
+|------|------|
+| `frontend/src/pages/CashflowPage.tsx` | Cashflow projection page. Composed Recharts bar (inflow/outflow) + area (closing balance), `ReferenceLine y=0`, overdraw banner, 14/30/60/90/180/365d range, per-account filter |
+| `backend/app/services/analysis_service.py` | `get_cashflow_projection()` + pure `_build_buckets()` (daily ≤31d, weekly above) + shared `_balance_as_of()` extracted from `get_net_worth_trend` |
+| `backend/app/schemas/analysis.py` | `CashflowProjectionResponse`, `CashflowBucket`, `CashflowLowestPoint` — 17 fields, fully declared (unlike the 25 untyped operations) |
+| `backend/app/api/routes/analysis.py` | `GET /api/analysis/cashflow` (`days` 7–365 default 90, `account_id` optional) |
+| `backend/app/services/recurring_service.py` | `calculate_next_date()` promoted from private `_calculate_next_date` so the projection and the hourly Celery job share one date-roll implementation |
+| `backend/alembic/versions/f1a2b3c4d5e6_add_missing_model_indexes.py` | Creates the 5 indexes declared on models but absent from every migration; `if_not_exists=True`, reversible |
+| `backend/pytest.ini` | `pythonpath=.`, `testpaths=tests`, `asyncio_mode=strict` |
+| `backend/requirements-dev.txt` | `pytest` + `pytest-asyncio`, kept out of `requirements.txt` so the production image does not ship them |
+| `backend/tests/test_cashflow_projection.py` | 19 tests: future-transaction reversal, recurring date expansion incl. month-end/leap-year clamping, daily↔weekly boundary, running balance, lowest-point tracking |
+| `docs/API.md` `docs/ARCHITECTURE.md` `docs/OPERATIONS.md` `docs/LIMITATIONS.md` | Generated from the live OpenAPI schema and source, not maintained by hand |
+
+Also changed in v1.1: `frontend/src/services/api.ts` (`analysisApi.getCashflow`), `frontend/src/types/index.ts`, `frontend/src/App.tsx` (route), `frontend/src/components/layout/Sidebar.tsx` (nav), `backend/app/copilot/intent_router.py` (`create_goal` no longer matches the bare noun "saving goal"), `backend/app/services/budget_service.py` (`timedelta` import), `frontend/src/pages/BillsPage.tsx` (`toList`).
+
+Counts after v1.1: **19 routers, 78 REST operations, 51 paths, 1 WebSocket, 12 models, 17 schemas, 17 services, 18 pages, 9 migrations, 44 tests.**
 
 ---
 

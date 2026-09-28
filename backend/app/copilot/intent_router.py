@@ -49,7 +49,10 @@ INTENT_PATTERNS = {
     ],
     "create_goal": [
         r"\b(add|create|set|start|make)\b.*\bgoal",
-        r"\bsaving goal\b",
+        # Was a bare `\bsaving goal\b`, which also matched read-only
+        # questions like "how is my saving goal progressing?" and so
+        # misrouted them to multi_step. Requires an explicit request verb.
+        r"\b(i want|i need|i'd like|help me)\b.*\bgoal",
     ],
     "create_category": [
         r"\b(add|create|make|new)\b.*\bcategor(y|ies)\b",

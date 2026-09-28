@@ -2,15 +2,38 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, Integer
 from app.models.transaction import Transaction
 from app.models.category import Category
-from datetime import date, timedelta
-from typing import Optional
+from app.models.account import Account
+from app.models.bill import Bill
+from app.services.recurring_service import RecurringService
+from datetime import date, datetime, timedelta, timezone
+from collections import defaultdict
+from typing import Optional, List, Dict, Any
 import math
 from app.core.currency import CURRENCY_SYMBOLS
+
+# Accounts whose balance is spendable cash. Credit/loan/investment balances are
+# reported as liabilities rather than counted toward projected liquidity.
+LIQUID_ACCOUNT_TYPES = ("checking", "savings", "cash")
 
 
 class AnalysisService:
     def __init__(self, db: AsyncSession):
         self.db = db
+
+    @staticmethod
+    def _balance_as_of(account, transactions: list, as_of: date) -> float:
+        """Balance of `account` as it stood on `as_of`.
+
+        Account.balance is maintained on write and therefore already includes
+        every future-dated transaction. To recover the true balance at a past
+        (or current) point in time we reverse everything dated after `as_of`.
+        """
+        bal = float(account.balance or 0)
+        for t in transactions:
+            if t.date.date() > as_of:
+                amt = float(t.amount or 0)
+                bal -= amt if t.type == "income" else -amt
+        return bal
 
     async def get_period_analysis(self, user_id: str, period: str, year: int, month: int = None, quarter: int = None, account_id: str = None, category_id: str = None, currency: str = "USD") -> dict:
         if period == "monthly" and month:
@@ -288,10 +311,6 @@ class AnalysisService:
         }
 
     async def get_net_worth_trend(self, user_id: str, months: int = 12) -> dict:
-        from app.models.account import Account
-        from collections import defaultdict
-        from datetime import date, timedelta
-
         today = date.today()
         ends = []
         y, m = today.year, today.month
@@ -315,20 +334,12 @@ class AnalysisService:
         for t in txn_result.scalars().all():
             by_acct[t.account_id].append(t)
 
-        def balance_as_of(account, end_date):
-            bal = float(account.balance or 0)
-            for t in by_acct.get(account.id, []):
-                if t.date.date() > end_date:
-                    amt = float(t.amount or 0)
-                    bal -= amt if t.type == "income" else -amt
-            return bal
-
         series = []
         for end in ends:
             assets = 0.0
             liabilities = 0.0
             for a in accounts:
-                b = balance_as_of(a, end)
+                b = self._balance_as_of(a, by_acct.get(a.id, []), end)
                 if a.type == "credit":
                     liabilities += b
                 else:
@@ -382,3 +393,195 @@ class AnalysisService:
         num_days = cal.monthrange(year, month)[1]
         day_list = [days.get(d, {"day": d, "income": 0.0, "expense": 0.0, "count": 0}) for d in range(1, num_days + 1)]
         return {"year": year, "month": month, "days": day_list, "bills": bills}
+
+    async def get_cashflow_projection(
+        self,
+        user_id: str,
+        days: int = 90,
+        account_id: str = None,
+        currency: str = "USD",
+    ) -> dict:
+        """Project spendable cash forward over `days` days.
+
+        Three sources of known future movement are combined:
+
+        1. Recurring transactions, expanded from ``next_date``. That field is
+           always the next *un-materialised* occurrence, so expanding it cannot
+           double-count the transactions the Celery job has already written
+           (those are dated today and stay in the opening balance).
+        2. Unpaid bills due inside the window, minus any bill already covered
+           by a future-dated transaction or by a recurring item.
+        3. Future-dated transactions that are neither recurring nor bill
+           linked -- i.e. things the user has scheduled by hand.
+
+        Balances exclude future-dated transactions via ``_balance_as_of``,
+        because ``Account.balance`` already includes them.
+        """
+        days = max(7, min(int(days or 90), 365))
+        today = date.today()
+        horizon_end = today + timedelta(days=days)
+
+        acct_stmt = select(Account).where(Account.user_id == user_id, Account.deleted_at.is_(None))
+        if account_id:
+            acct_stmt = acct_stmt.where(Account.id == account_id)
+        accounts = list((await self.db.execute(acct_stmt)).scalars().all())
+
+        txn_result = await self.db.execute(
+            select(Transaction).where(Transaction.user_id == user_id, Transaction.deleted_at.is_(None))
+        )
+        transactions = list(txn_result.scalars().all())
+        by_acct = defaultdict(list)
+        for t in transactions:
+            by_acct[t.account_id].append(t)
+
+        opening_balance = 0.0
+        liabilities = 0.0
+        for a in accounts:
+            bal = self._balance_as_of(a, by_acct.get(a.id, []), today)
+            if a.type in LIQUID_ACCOUNT_TYPES:
+                opening_balance += bal
+            elif a.type in ("credit", "loan"):
+                liabilities += abs(bal)
+
+        # (date, signed amount, label, kind)
+        events: List[tuple] = []
+
+        # 1. Recurring. next_date is the next occurrence not yet written as a
+        #    transaction, so there is no overlap with materialised rows.
+        from app.models.recurring import RecurringTransaction
+
+        rec_result = await self.db.execute(
+            select(RecurringTransaction).where(
+                RecurringTransaction.user_id == user_id,
+                RecurringTransaction.deleted_at.is_(None),
+                RecurringTransaction.is_active.is_(True),
+                RecurringTransaction.next_date <= horizon_end,
+            )
+        )
+        rec_service = RecurringService(self.db)
+        for item in rec_result.scalars().all():
+            if item.end_date and item.next_date < today:
+                continue
+            occurrence = item.next_date
+            guard = 0
+            while occurrence <= horizon_end and guard < 400:
+                if not (item.end_date and occurrence > item.end_date):
+                    amt = float(item.amount or 0)
+                    signed = amt if item.type == "income" else -amt
+                    events.append((occurrence, signed, item.description or "Recurring", "recurring"))
+                occurrence = rec_service.calculate_next_date(
+                    occurrence, item.frequency, item.interval_value or 1
+                )
+                guard += 1
+
+        # Bills already represented by a future-dated transaction.
+        bills_covered = {t.bill_id for t in transactions if t.bill_id and t.date.date() > today}
+
+        # 2. Unpaid bills in the window.
+        bill_result = await self.db.execute(
+            select(Bill).where(
+                Bill.user_id == user_id,
+                Bill.deleted_at.is_(None),
+                Bill.is_paid.is_(False),
+                Bill.due_date >= today,
+                Bill.due_date <= horizon_end,
+            )
+        )
+        for b in bill_result.scalars().all():
+            if b.recurring_id:
+                continue  # already covered by the recurring expansion
+            if b.id in bills_covered:
+                continue  # a scheduled transaction already pays this bill
+            events.append((b.due_date, -float(b.amount or 0), b.name, "bill"))
+
+        # 3. Hand-scheduled future transactions. Recurring-linked rows are
+        #    excluded because item 1 already projects them.
+        for t in transactions:
+            tdate = t.date.date()
+            if tdate <= today or tdate > horizon_end:
+                continue
+            if t.recurring_id or t.bill_id:
+                continue
+            amt = float(t.amount or 0)
+            events.append((tdate, amt if t.type == "income" else -amt, t.description or t.merchant or "Scheduled", "scheduled"))
+
+        # Bucket into daily or weekly steps.
+        by_day = defaultdict(float)
+        for d, signed, _label, _kind in events:
+            by_day[d] += signed
+
+        buckets, running, lowest = self._build_buckets(by_day, opening_balance, today, days, horizon_end)
+
+        return {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "start_date": today.isoformat(),
+            "end_date": horizon_end.isoformat(),
+            "days": days,
+            "granularity": "daily" if days <= 31 else "weekly",
+            "currency": currency,
+            "opening_balance": round(opening_balance, 2),
+            "liabilities": round(liabilities, 2),
+            "projected_closing_balance": round(running, 2),
+            "total_inflow": round(sum(b["inflow"] for b in buckets), 2),
+            "total_outflow": round(sum(b["outflow"] for b in buckets), 2),
+            "lowest_point": lowest,
+            "is_overdrawn": lowest["balance"] < 0,
+            "buckets": buckets,
+        }
+
+    @staticmethod
+    def _build_buckets(
+        by_day: dict,
+        opening_balance: float,
+        today: date,
+        days: int,
+        horizon_end: date,
+    ):
+        """Fold per-day net movement into a running balance.
+
+        Windows of 31 days or fewer are bucketed daily; longer ones weekly, so
+        a 12-month projection does not return 365 points.
+        """
+        granularity = "daily" if days <= 31 else "weekly"
+        step = 1 if days <= 31 else 7
+
+        buckets = []
+        running = opening_balance
+        lowest = {"balance": round(opening_balance, 2), "label": None, "in_days": 0}
+        cursor = today
+        while cursor <= horizon_end:
+            b_end = min(cursor + timedelta(days=step - 1), horizon_end)
+            inflow = 0.0
+            outflow = 0.0
+            d = cursor
+            while d <= b_end:
+                net = by_day.get(d, 0.0)
+                if net > 0:
+                    inflow += net
+                else:
+                    outflow += -net
+                d += timedelta(days=1)
+            running += inflow - outflow
+            label = (
+                cursor.isoformat()
+                if granularity == "daily"
+                else f"{cursor.strftime('%b %d')} - {b_end.strftime('%b %d')}"
+            )
+            buckets.append({
+                "label": label,
+                "start_date": cursor.isoformat(),
+                "end_date": b_end.isoformat(),
+                "inflow": round(inflow, 2),
+                "outflow": round(outflow, 2),
+                "net": round(inflow - outflow, 2),
+                "closing_balance": round(running, 2),
+            })
+            if running < lowest["balance"]:
+                lowest = {
+                    "balance": round(running, 2),
+                    "label": label,
+                    "in_days": (b_end - today).days,
+                }
+            cursor = b_end + timedelta(days=1)
+
+        return buckets, round(running, 2), lowest

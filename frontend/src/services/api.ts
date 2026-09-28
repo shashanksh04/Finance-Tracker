@@ -233,6 +233,8 @@ export const analysisApi = {
   getPeriod: (params: any) => api.get('/analysis/period', { params }),
   getNetWorthTrend: (months: number) => api.get('/analysis/net-worth-trend', { params: { months } }),
   getCalendar: (year: number, month: number) => api.get('/analysis/calendar', { params: { year, month } }),
+  getCashflow: (days: number, accountId?: string) =>
+    api.get('/analysis/cashflow', { params: { days, ...(accountId ? { account_id: accountId } : {}) } }),
 };
 
 export const copilotApi = {

@@ -103,14 +103,14 @@ class RecurringService:
                 amt = Decimal(str(item.amount))
                 cur = Decimal(str(acct.balance or 0))
                 acct.balance = cur + amt if item.type == "income" else cur - amt
-            item.next_date = self._calculate_next_date(item.next_date, item.frequency, item.interval_value)
+            item.next_date = self.calculate_next_date(item.next_date, item.frequency, item.interval_value)
             if item.end_date and item.next_date > item.end_date:
                 item.is_active = False
             created.append(txn)
         await self.db.flush()
         return [self._enrich(i) for i in items]
 
-    def _calculate_next_date(self, from_date: date, frequency: str, interval: int) -> date:
+    def calculate_next_date(self, from_date: date, frequency: str, interval: int) -> date:
         if frequency == "daily":
             return from_date + timedelta(days=interval)
         elif frequency == "weekly":
@@ -125,9 +125,9 @@ class RecurringService:
             day = min(from_date.day, last_day)
             return date(year, month, day)
         elif frequency == "quarterly":
-            return self._calculate_next_date(from_date, "monthly", 3 * interval)
+            return self.calculate_next_date(from_date, "monthly", 3 * interval)
         elif frequency == "yearly":
-            return self._calculate_next_date(from_date, "monthly", 12 * interval)
+            return self.calculate_next_date(from_date, "monthly", 12 * interval)
         return from_date
 
     async def _enrich(self, item: RecurringTransaction) -> dict:

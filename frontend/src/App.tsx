@@ -16,6 +16,7 @@ import { RecurringPage } from './pages/RecurringPage';
 import { AnalysisPage } from './pages/AnalysisPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { CalendarPage } from './pages/CalendarPage';
+import { CashflowPage } from './pages/CashflowPage';
 import { CopilotPage } from './pages/CopilotPage';
 import { AlertsPage } from './pages/AlertsPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -62,6 +63,7 @@ export default function App() {
           <Route path="recurring" element={<RecurringPage />} />
           <Route path="analysis" element={<AnalysisPage />} />
           <Route path="reports" element={<ReportsPage />} />
+          <Route path="cashflow" element={<CashflowPage />} />
           <Route path="calendar" element={<CalendarPage />} />
           <Route path="copilot" element={<CopilotPage />} />
           <Route path="alerts" element={<AlertsPage />} />
