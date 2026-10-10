@@ -4,7 +4,7 @@ from app.core.database import get_db
 from app.api.deps import get_current_user
 from app.models.user import User
 from app.schemas.import_schema import ImportOptions, ImportPreviewResponse, ImportResult
-from app.services.import_service import ImportService
+from app.services.import_service import ImportService, TEMPLATE_SUMMARIES, detect_template_from_filename
 from app.api.routes.auth import limiter
 from app.ws.events import notify_dashboard_updated
 import os
@@ -13,6 +13,12 @@ import uuid
 router = APIRouter(prefix="/api/import", tags=["Import"])
 
 UPLOAD_DIR = "uploads/import"
+
+
+@router.get("/templates")
+async def list_templates(user: User = Depends(get_current_user)):
+    """Expose the smart import templates so the UI can offer them as choices."""
+    return {"templates": dict(TEMPLATE_SUMMARIES)}
 
 
 @router.post("/preview", response_model=ImportPreviewResponse)

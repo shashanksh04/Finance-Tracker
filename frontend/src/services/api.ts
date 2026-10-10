@@ -226,7 +226,15 @@ export const voiceApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
   },
+  quickAdd: (formData: FormData, opts: { save?: boolean; account_id?: string } = {}) => {
+    if (opts.save) formData.append('save', 'true');
+    if (opts.account_id) formData.append('account_id', opts.account_id);
+    return api.post('/voice/quick-add', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
 };
+
 
 export const analysisApi = {
   getDashboard: () => api.get('/analysis/dashboard'),
@@ -235,7 +243,9 @@ export const analysisApi = {
   getCalendar: (year: number, month: number) => api.get('/analysis/calendar', { params: { year, month } }),
   getCashflow: (days: number, accountId?: string) =>
     api.get('/analysis/cashflow', { params: { days, ...(accountId ? { account_id: accountId } : {}) } }),
+  getBudgetAdvice: () => api.get('/analysis/budget-advisor'),
 };
+
 
 export const copilotApi = {
   chat: (data: any) => api.post('/copilot/chat', data),
@@ -326,6 +336,7 @@ export const importApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
   },
+
 };
 
 export default api;

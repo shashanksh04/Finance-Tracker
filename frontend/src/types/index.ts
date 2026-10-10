@@ -84,6 +84,20 @@ export interface Transaction {
   updated_at?: string;
 }
 
+// Payload accepted by the "create" endpoint. Mirrors backend TransactionCreate.
+export interface TransactionCreate {
+  account_id: string;
+  category_id?: string | null;
+  auto_rule_id?: string | null;
+  amount: number;
+  type: 'income' | 'expense' | 'transfer';
+  description?: string;
+  merchant?: string | null;
+  date?: string | null;
+  notes?: string | null;
+  tags?: string[];
+}
+
 export interface PaginatedTransactions {
   items: Transaction[];
   total: number;

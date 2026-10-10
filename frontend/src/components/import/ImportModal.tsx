@@ -41,6 +41,7 @@ const FIELD_LABELS: Record<string, string> = {
 export function ImportModal({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState<Step>('upload');
   const [file, setFile] = useState<File | null>(null);
+  const [bankName, setBankName] = useState<string>('');
   const [columns, setColumns] = useState<string[]>([]);
   const [mapping, setMapping] = useState<ColumnMapping>({});
   const [preview, setPreview] = useState<PreviewRow[]>([]);
@@ -60,7 +61,12 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
     setFile(f);
     setLoading(true);
     try {
-      const { data } = await importApi.preview(f);
+      const { data } = await importApi.preview(f, { 
+        bank_name: bankName,
+        skip_first_row: true,
+        create_missing_accounts: true,
+        create_missing_categories: true,
+      });
       setColumns(data.columns || []);
       setMapping(data.detected_mapping || {});
       setPreview(data.rows || []);
@@ -70,13 +76,14 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [bankName]);
 
   const handleExecute = async () => {
     if (!file) return;
     setLoading(true);
     try {
       const { data } = await importApi.execute(file, {
+        bank_name: bankName,
         column_mapping: mapping,
         skip_first_row: true,
         create_missing_accounts: true,

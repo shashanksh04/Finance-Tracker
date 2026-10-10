@@ -11,6 +11,9 @@ class ColumnMapping(BaseModel):
     category: Optional[str] = None
     account: Optional[str] = None
     merchant: Optional[str] = None
+    # When a template forces every row to a single type (payroll -> income,
+    # restaurant receipts -> expense), this pins it and overrides type inference.
+    forced_type: Optional[str] = None
 
 
 class ImportOptions(BaseModel):
@@ -23,6 +26,10 @@ class ImportOptions(BaseModel):
     delimiter: str = ","
     create_missing_accounts: bool = False
     create_missing_categories: bool = False
+    # Smart template selection (bank statement / payroll / restaurant / ...).
+    bank_name: Optional[str] = None
+    # Optional template the frontend explicitly picked ("payroll", "chase" ...).
+    template: Optional[str] = None
 
 
 class PreviewRow(BaseModel):

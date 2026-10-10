@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BarChart3, TrendingUp, TrendingDown, DollarSign, PieChart, Download } from 'lucide-react';
+import { BarChart3, TrendingUp, TrendingDown, DollarSign, PieChart, Download, Sparkles, AlertCircle, CheckCircle2, Info } from 'lucide-react';
 import { analysisApi } from '../services/api';
 import { PeriodAnalysis } from '../types';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
@@ -13,17 +13,22 @@ const COLORS = ['#0ea5e9', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4'
 
 export function AnalysisPage() {
   const [data, setData] = useState<PeriodAnalysis | null>(null);
+  const [budgetAdvice, setBudgetAdvice] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState('monthly');
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const darkMode = useThemeStore((s) => s.darkMode);
-
+ 
   useEffect(() => {
     setLoading(true);
     const params: any = { period, year };
     if (period === 'monthly') params.month = month;
-    analysisApi.getPeriod(params).then(({ data }) => setData(data)).finally(() => setLoading(false));
+    
+    Promise.all([
+      analysisApi.getPeriod(params).then(({ data }) => setData(data)),
+      analysisApi.getBudgetAdvice().then(({ data }) => setBudgetAdvice(data))
+    ]).finally(() => setLoading(false));
   }, [period, year, month]);
 
   if (loading) return <section className="page-container"><LoadingSpinner size="lg" /></section>;
@@ -166,6 +171,47 @@ export function AnalysisPage() {
           </div>
         </div>
       </div>
+
+      {budgetAdvice.length > 0 && (
+        <div className="card p-6 mb-8">
+          <h3 className="text-sm font-semibold text-surface-900 dark:text-surface-100 mb-4 flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-primary-500 dark:text-primary-400" /> AI Budget Advisor
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {budgetAdvice.map((advice, idx) => {
+              const isWarning = advice.severity === 'warning';
+              const isSuccess = advice.severity === 'success';
+              return (
+                <div key={idx} className={cn(
+                  "flex items-start gap-3 p-4 rounded-2xl border transition-all hover:shadow-sm",
+                  isWarning 
+                    ? "bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-800/50" 
+                    : isSuccess 
+                      ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-800/50" 
+                      : "bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800/50"
+                )}>
+                  <div className={cn(
+                    "w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5",
+                    isWarning ? "bg-amber-100 text-amber-600 dark:bg-amber-800 dark:text-amber-400" 
+                    : isSuccess ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-800 dark:text-emerald-400" 
+                    : "bg-blue-100 text-blue-600 dark:bg-blue-800 dark:text-blue-400"
+                  )}>
+                    {isWarning ? <AlertCircle className="w-3.5 h-3.5" /> : isSuccess ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Info className="w-3.5 h-3.5" />}
+                  </div>
+                  <p className={cn(
+                    "text-sm",
+                    isWarning ? "text-amber-800 dark:text-amber-300" 
+                    : isSuccess ? "text-emerald-800 dark:text-emerald-300" 
+                    : "text-blue-800 dark:text-blue-300"
+                  )}>
+                    {advice.message}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {data.insights.length > 0 && (
         <div className="card p-6">

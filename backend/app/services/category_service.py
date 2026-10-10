@@ -5,16 +5,19 @@ from app.models.category import Category
 from app.models.transaction import Transaction
 from app.schemas.category import CategoryCreate, CategoryUpdate
 from fastapi import HTTPException, status
-
+from app.services.categorization_service import CategorizationService
 
 class CategoryService:
     def __init__(self, db: AsyncSession):
         self.db = db
+        self.categorization = CategorizationService(db)
 
     async def create(self, user_id: str, data: CategoryCreate) -> Category:
         category = Category(user_id=user_id, **data.model_dump())
         self.db.add(category)
         await self.db.flush()
+        # Update embedding
+        await self.categorization.update_category_embedding(user_id, category.id, category.name)
         return category
 
     async def get_all(self, user_id: str, type_filter: str = None, page: int = 0, page_size: int = 0) -> list[Category] | dict:
@@ -59,6 +62,9 @@ class CategoryService:
         for field, value in data.model_dump(exclude_unset=True).items():
             setattr(cat, field, value)
         await self.db.flush()
+        # Update embedding if name changed
+        if "name" in data.model_dump(exclude_unset=True):
+            await self.categorization.update_category_embedding(user_id, cat.id, cat.name)
         return cat
 
     async def delete(self, user_id: str, category_id: str) -> bool:

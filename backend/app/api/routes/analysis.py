@@ -5,7 +5,11 @@ from app.api.deps import get_current_user
 from app.models.user import User
 from app.schemas.analysis import PeriodAnalysisResponse, DashboardSummary, CashflowProjectionResponse
 from app.services.analysis_service import AnalysisService
-from typing import Optional
+from app.services.budget_advisor_service import BudgetAdvisorService
+from typing import Optional, List, Dict, Any
+
+router = APIRouter(prefix="/api/analysis", tags=["Analysis"])
+
 
 router = APIRouter(prefix="/api/analysis", tags=["Analysis"])
 
@@ -55,6 +59,11 @@ async def get_calendar(
     service = AnalysisService(db)
     return await service.get_calendar(user.id, year, month)
 
+
+@router.get("/budget-advisor", response_model=List[Dict[str, Any]])
+async def get_budget_advice(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    service = BudgetAdvisorService(db)
+    return await service.get_recommendations(user.id)
 
 @router.get("/cashflow", response_model=CashflowProjectionResponse)
 async def get_cashflow(

@@ -6,6 +6,7 @@ from app.models.category import Category
 from app.schemas.import_schema import ColumnMapping, ImportOptions, PreviewRow, ImportPreviewResponse, ImportResult
 from fastapi import HTTPException, status
 from datetime import date, datetime
+from typing import Optional
 import csv
 import io
 import re
@@ -34,14 +35,133 @@ AMOUNT_REGEX = re.compile(r'^[\d,]+\.?\d*$')
 NEGATIVE_AMOUNT_REGEX = re.compile(r'^[-\(][\d,]+\.?\d*[\)]?$')
 
 
+BANK_TEMPLATES = {
+    "chase": {
+        "date": "Transaction Date",
+        "amount": "Amount",
+        "description": "Description",
+        "merchant": "Description",
+        "type": "Amount" # Chase uses signs
+    },
+    "wellsfargo": {
+        "date": "Date",
+        "amount": "Amount",
+        "description": "Description",
+        "merchant": "Description",
+        "type": "Amount"
+    },
+    "hsbc": {
+        "date": "Value Date",
+        "amount": "Amount",
+        "description": "Details",
+        "merchant": "Details",
+        "type": "Debit/Credit"
+    },
+    "bankofamerica": {
+        "date": "Transaction Date",
+        "amount": "Amount",
+        "description": "Description",
+        "merchant": "Description",
+        "type": "Amount"
+    },
+    "citibank": {
+        "date": "Transaction Date",
+        "amount": "Amount",
+        "description": "Description",
+        "merchant": "Description",
+        "type": "Amount"
+    },
+    "payroll": {
+        "date": "Run Date",
+        "amount": "Net Pay",
+        "description": "Payment",
+        "type": "income",
+    },
+    "paychecks": {
+        "date": "Date",
+        "amount": "Net",
+        "description": "Description",
+        "type": "income",
+    },
+    "restaurant": {
+        "date": "Date",
+        "amount": "Total",
+        "description": "Items",
+        "merchant": "Merchant",
+        "type": "expense",
+    },
+    "receipts": {
+        "date": "Date",
+        "amount": "Total",
+        "description": "Description",
+        "merchant": "Store",
+        "type": "expense",
+    },
+}
+
+# Maps substrings of an uploaded filename to a template key. Checked before the
+# user-supplied bank_name so a file named "payroll_oct.csv" is auto-detected even
+# when the user does not pick a template.
+AUTO_DETECT_PATTERNS = [
+    ("payroll", "payroll"),
+    ("payroll", "paycheck"),
+    ("salary", "payroll"),
+    ("salary", "paycheck"),
+    ("receipt", "restaurant"),
+    ("restaurant", "restaurant"),
+    ("chase", "chase"),
+    ("well", "wellsfargo"),
+    ("fargo", "wellsfargo"),
+    ("hsbc", "hsbc"),
+    ("boc", "bankofamerica"),
+    ("bankofamerica", "bankofamerica"),
+    ("bofa", "bankofamerica"),
+    ("citi", "citibank"),
+    ("citibank", "citibank"),
+    ("bank", "chase"),
+]
+
+
+# Human-readable descriptions surfaced to the UI so a user can pick a template
+# without reverse-engineering the header names.
+TEMPLATE_SUMMARIES = {
+    "chase": "Chase bank statement (Transaction Date / Amount / Description)",
+    "wellsfargo": "Wells Fargo statement (Date / Amount / Description)",
+    "hsbc": "HSBC statement (Value Date / Details / Debit-Credit)",
+    "bankofamerica": "Bank of America statement (Transaction Date / Amount / Description)",
+    "citibank": "Citibank statement (Transaction Date / Amount / Description)",
+    "payroll": "Payroll / paycheck CSV (Run Date / Net Pay) - treated as income",
+    "paychecks": "Paycheck export (Date / Net) - treated as income",
+    "restaurant": "Restaurant receipts (Date / Total / Items)",
+    "receipts": "Generic receipts (Date / Total / Description)",
+}
+
+
+def detect_template_from_filename(filename: str) -> Optional[str]:
+    """Best-effort template guess from the upload's filename."""
+    if not filename:
+        return None
+    lower = filename.lower()
+    for needle, key in AUTO_DETECT_PATTERNS:
+        if needle in lower:
+            return key
+    return None
+
 class ImportService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
+
     async def preview(self, user_id: str, file_path: str, options: ImportOptions) -> ImportPreviewResponse:
         rows, columns = await self._parse_file(file_path, options)
-        detected = self._detect_mapping(columns) if not options.column_mapping else options.column_mapping
-        mapping = options.column_mapping or detected
+        filename = os.path.basename(file_path)
+
+        if options.column_mapping:
+            mapping = options.column_mapping
+            detected = options.column_mapping
+        else:
+            detected = self._detect_mapping(columns, options.bank_name, options.template, filename)
+            mapping = detected
 
         preview_rows = []
         valid_count = 0
@@ -71,10 +191,6 @@ class ImportService:
                 errors=errors,
             ))
 
-        cat_names = set(r.get("category_name", "").strip().lower() for r, _ in (self._parse_row(row, mapping, options, i + 1) for i, row in enumerate(rows) if i < 50) if not _)
-        if options.default_category_name:
-            cat_names.discard(options.default_category_name.strip().lower())
-
         return ImportPreviewResponse(
             total_rows=len(rows),
             valid_rows=valid_count,
@@ -87,7 +203,11 @@ class ImportService:
 
     async def execute(self, user_id: str, file_path: str, options: ImportOptions) -> ImportResult:
         rows, columns = await self._parse_file(file_path, options)
-        mapping = options.column_mapping or self._detect_mapping(columns)
+        filename = os.path.basename(file_path)
+        if options.column_mapping:
+            mapping = options.column_mapping
+        else:
+            mapping = self._detect_mapping(columns, options.bank_name, options.template, filename)
 
         imported = 0
         skipped = 0
@@ -178,11 +298,40 @@ class ImportService:
         rows = df.to_dict(orient="records")
         return rows, header
 
-    def _detect_mapping(self, columns: list[str]) -> ColumnMapping:
+    def _detect_mapping(self, columns: list[str], bank_name: Optional[str] = None,
+                       template: Optional[str] = None, filename: Optional[str] = None) -> ColumnMapping:
+        # Resolve which template to apply, in order of user intent:
+        # explicit template > bank_name > filename guess.
+        key = template or bank_name
+        if not key:
+            key = detect_template_from_filename(filename or "")
+        if key:
+            key = key.lower()
+
         mapping = {}
+        forced_type: Optional[str] = None
         col_lower = [c.lower().strip() for c in columns]
 
+        # Try bank/template first.
+        if key and key in BANK_TEMPLATES:
+            template_map = BANK_TEMPLATES[key]
+            for field, target in template_map.items():
+                # A literal type value (e.g. "income") pins every row instead of
+                # pointing at a column.
+                if field == "type" and target in ("income", "expense", "transfer"):
+                    forced_type = target
+                    continue
+                for col in columns:
+                    if col.strip().lower() == target.lower():
+                        mapping[field] = col
+                        break
+
+        # Fallback to keyword matching for remaining fields.
         for field, keywords in FIELD_KEYWORDS.items():
+            if field in mapping:
+                continue
+            if forced_type and field == "type":
+                continue  # a forced template has already decided the type
             best_match = None
             best_score = 0
             for col in col_lower:
@@ -201,7 +350,10 @@ class ImportService:
             if best_match and best_score >= 0.4:
                 mapping[field] = best_match
 
-        return ColumnMapping(**mapping)
+        result = ColumnMapping(**mapping)
+        if forced_type:
+            result.forced_type = forced_type
+        return result
 
     def _parse_row(self, row: dict, mapping: ColumnMapping, options: ImportOptions, row_num: int) -> tuple[dict, list[str]]:
         errors = []
@@ -234,7 +386,9 @@ class ImportService:
         if desc_val:
             result["description"] = desc_val
 
-        if type_val:
+        if forced_type := getattr(mapping, "forced_type", None):
+            result["type"] = forced_type
+        elif type_val:
             t = type_val.strip().lower()
             if t in ("income", "deposit", "credit", "inflow", "cr", "+"):
                 result["type"] = "income"
@@ -347,6 +501,19 @@ class ImportService:
                 cat = Category(user_id=user_id, name=cat_name.strip(), type=cat_type, color="#64748b")
                 self.db.add(cat)
                 await self.db.flush()
+                # Update embedding for the new category
+                from app.services.categorization_service import CategorizationService
+                await CategorizationService(self.db).update_category_embedding(user_id, cat.id, cat.name)
                 return cat.id
+        
+        # Fallback to AI semantic suggestion if no category name provided or found
+        from app.services.categorization_service import CategorizationService
+        cat_service = CategorizationService(self.db)
+        suggestion = await cat_service.suggest_category(
+            user_id, 
+            f"{parsed.get('merchant', '')} {parsed.get('description', '')}".strip()
+        )
+        if suggestion:
+            return suggestion.id
 
         return None
