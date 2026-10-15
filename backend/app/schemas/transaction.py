@@ -1,6 +1,13 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List
 from datetime import datetime, date as Date
+
+
+def _blank_to_none(value):
+    if isinstance(value, str) and value.strip() == "":
+        return None
+    return value
+
 
 class TransactionCreate(BaseModel):
     account_id: str
@@ -14,6 +21,11 @@ class TransactionCreate(BaseModel):
     tags: Optional[List[str]] = None
     is_split: bool = False
 
+    @field_validator("category_id", "merchant", "notes", mode="before")
+    @classmethod
+    def _empty_strings_to_none(cls, v):
+        return _blank_to_none(v)
+
 class TransactionUpdate(BaseModel):
     account_id: Optional[str] = None
     category_id: Optional[str] = None
@@ -24,6 +36,11 @@ class TransactionUpdate(BaseModel):
     date: Optional[Date] = None
     notes: Optional[str] = Field(default=None, max_length=2000)
     tags: Optional[List[str]] = None
+
+    @field_validator("account_id", "category_id", "merchant", "notes", mode="before")
+    @classmethod
+    def _empty_strings_to_none(cls, v):
+        return _blank_to_none(v)
 
 class TransactionResponse(BaseModel):
     id: str

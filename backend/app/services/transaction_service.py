@@ -35,7 +35,7 @@ class TransactionService:
         account = result.scalar_one_or_none()
         if not account:
             raise HTTPException(status_code=404, detail="Account not found")
-        category_id = data.category_id
+        category_id = data.category_id or None
         auto_rule_id = None
         if not category_id:
             # 1. Try rule-based matching first (precise)
@@ -78,6 +78,7 @@ class TransactionService:
             from app.services.category_rule_service import CategoryRuleService
             await CategoryRuleService(self.db).record_hit(auto_rule_id)
         await self.db.flush()
+        await self.db.refresh(txn)
         return await self._enrich(txn)
 
     async def get_filtered(self, user_id: str, filters: TransactionFilterParams) -> dict:
@@ -240,19 +241,16 @@ class TransactionService:
         category_name = None
         category_icon = None
         category_color = None
-        if getattr(txn, "account", None) is not None and txn.account:
-            account_name = txn.account.name
-        elif txn.account_id:
-            acct = await self.db.get(Account, txn.account_id)
-            if acct:
-                account_name = acct.name
-        if getattr(txn, "category", None) is not None and txn.category:
-            category_name = txn.category.name
-            category_icon = txn.category.icon
-            category_color = txn.category.color
-        elif txn.category_id:
-            cat = await self.db.get(Category, txn.category_id)
-            if cat:
+        if txn.account_id:
+            # Use identity-mapped instances where possible; never trigger a
+            # lazy relationship load, which would raise MissingGreenlet under
+            # the async engine.
+            acct = self.db.identity_map.get((Account, txn.account_id)) or await self.db.get(Account, txn.account_id)
+            if acct is not None:
+                account_name = acct.name or ""
+        if txn.category_id:
+            cat = self.db.identity_map.get((Category, txn.category_id)) or await self.db.get(Category, txn.category_id)
+            if cat is not None:
                 category_name = cat.name
                 category_icon = cat.icon
                 category_color = cat.color
