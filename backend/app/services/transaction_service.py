@@ -1,3 +1,4 @@
+import logging
 from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, desc, asc
@@ -9,6 +10,8 @@ from app.schemas.transaction import TransactionCreate, TransactionUpdate, Transa
 from fastapi import HTTPException, status
 import math
 from datetime import datetime, timezone
+
+logger = logging.getLogger(__name__)
 
 
 def _escape_like(value: str) -> str:
@@ -48,15 +51,19 @@ class TransactionService:
                 category_id = matched_category_id
                 auto_rule_id = matched_rule_id
             else:
-                # 2. Fallback to AI semantic suggest (fuzzy)
-                from app.services.categorization_service import CategorizationService
-                cat_service = CategorizationService(self.db)
-                suggestion = await cat_service.suggest_category(
-                    user_id, 
-                    f"{data.merchant or ''} {data.description or ''}".strip()
-                )
-                if suggestion:
-                    category_id = suggestion.id
+                # 2. Fallback to AI semantic suggest (fuzzy). Never let a
+                #    categorization hiccup block creating the transaction.
+                try:
+                    from app.services.categorization_service import CategorizationService
+                    cat_service = CategorizationService(self.db)
+                    suggestion = await cat_service.suggest_category(
+                        user_id,
+                        f"{data.merchant or ''} {data.description or ''}".strip()
+                    )
+                    if suggestion:
+                        category_id = suggestion.id
+                except Exception:
+                    logger.exception("Auto-categorization failed; creating transaction uncategorized")
         txn_data = data.model_dump()
         txn_data["category_id"] = category_id
         txn = Transaction(user_id=user_id, auto_rule_id=auto_rule_id, **txn_data)
@@ -170,10 +177,14 @@ class TransactionService:
                 setattr(txn, field, value)
         if data.category_id is not None and data.category_id != old_category_id:
             from app.services.category_rule_service import CategoryRuleService
-            from app.services.categorization_service import CategorizationService
             await CategoryRuleService(self.db).learn_from_correction(user_id, txn, old_category_id, data.category_id)
-            # AI Learning Loop: Associate this merchant with this category
-            await CategorizationService(self.db).learn_from_correction(user_id, txn.merchant, data.category_id)
+            # AI Learning Loop: Associate this merchant with this category.
+            # Best-effort — a learning failure must not block the update.
+            try:
+                from app.services.categorization_service import CategorizationService
+                await CategorizationService(self.db).learn_from_correction(user_id, txn.merchant, data.category_id)
+            except Exception:
+                logger.exception("Categorization learning failed; update proceeding")
         new_account_id = txn.account_id
         new_amount = _to_decimal(txn.amount)
         new_type = txn.type

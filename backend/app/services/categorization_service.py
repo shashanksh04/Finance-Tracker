@@ -1,5 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from app.models.memory import FinancialMemory
 from app.embeddings.embedding_service import EmbeddingService
 from app.models.category import Category
@@ -61,8 +61,10 @@ class CategorizationService:
         )
         out: List[Dict[str, Any]] = []
         for mem in result.scalars().all():
-            dist = float(mem.embedding_vector.cosine_distance(vector))
-            confidence = round(1.0 - dist, 3)
+            confidence = self._cosine_confidence(mem.embedding_vector, vector)
+            if confidence is None:
+                continue
+            confidence = round(confidence, 3)
             if confidence < _CONFIDENCE_THRESHOLD:
                 break
             cat = await self._load_category(mem.key)
@@ -89,11 +91,13 @@ class CategorizationService:
         return await self._load_category(cat_id) if cat_id else None
 
     async def _vendor_category_id(self, user_id: str, merchant: str) -> Optional[str]:
+        if not merchant:
+            return None
         result = await self.db.execute(
             select(FinancialMemory.value).where(
                 FinancialMemory.user_id == user_id,
                 FinancialMemory.memory_type == "merchant_category",
-                FinancialMemory.key.lower() == merchant.lower(),
+                func.lower(FinancialMemory.key) == merchant.lower(),
                 FinancialMemory.deleted_at.is_(None),
             )
         )
@@ -116,8 +120,8 @@ class CategorizationService:
         mem = result.scalar_one_or_none()
         if not mem:
             return None
-        dist = float(mem.embedding_vector.cosine_distance(vector))
-        if (1.0 - dist) < _CONFIDENCE_THRESHOLD:
+        confidence = self._cosine_confidence(mem.embedding_vector, vector)
+        if confidence is None or confidence < _CONFIDENCE_THRESHOLD:
             return None
         return str(mem.value)
 
@@ -138,8 +142,8 @@ class CategorizationService:
         memory = result.scalar_one_or_none()
         if not memory:
             return None
-        dist = float(memory.embedding_vector.cosine_distance(vector))
-        if (1.0 - dist) < _CONFIDENCE_THRESHOLD:
+        confidence = self._cosine_confidence(memory.embedding_vector, vector)
+        if confidence is None or confidence < _CONFIDENCE_THRESHOLD:
             return None
         return await self._load_category(memory.key)
 
@@ -162,6 +166,26 @@ class CategorizationService:
     @staticmethod
     def _normalize(text: str) -> str:
         return (text or "").strip()
+
+    @staticmethod
+    def _cosine_confidence(a: Optional[List[float]], b: Optional[List[float]]) -> Optional[float]:
+        """Cosine similarity between two loaded embedding vectors, or None if unusable.
+
+        Loaded pgvector columns come back as plain Python lists (no SQL
+        ``cosine_distance`` comparator), so this computes it in-process.
+        """
+        if not a or not b:
+            return None
+        try:
+            va, vb = list(a), list(b)
+            dot = sum(x * y for x, y in zip(va, vb))
+            na = sum(x * x for x in va) ** 0.5
+            nb = sum(y * y for y in vb) ** 0.5
+            if na == 0 or nb == 0:
+                return None
+            return dot / (na * nb)
+        except (TypeError, ValueError):
+            return None
 
     async def update_category_embedding(self, user_id: str, category_id: str, name: str):
         """
